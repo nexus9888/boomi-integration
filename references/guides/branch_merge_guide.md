@@ -1,6 +1,6 @@
 ## Branch and Merge
 
-**Opt-in feature.** Branch and merge is not enabled on all accounts and not all users choose to use it. Do not use branch-related tools or suggest branching workflows unless the user has explicitly indicated they work with branches (via session instructions, CLAUDE.md configuration, or direct request).
+**Opt-in feature.** Branch and merge is not enabled on all accounts and not all users choose to use it. Do not use branch-related tools or suggest branching workflows unless the user has explicitly indicated they work with branches (via session instructions, project configuration files like GEMINI.md or CLAUDE.md, or direct request).
 
 On accounts without branch and merge enabled, branch and merge commands return access denied errors. All other tools (pull, push, create, package, deploy) work normally — they always operate on main.
 

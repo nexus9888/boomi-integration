@@ -471,7 +471,7 @@ Components land in account root folder instead of designated project folder desp
 <bns:Component componentId=""
                name="Component_Name"
                type="profile.json"
-               folderFullPath="ClaudeCode/ProjectFolder">
+               folderFullPath="AgentWorkspace/ProjectFolder">
 <!-- Result: Component lands in root folder -->
 
 <!-- Pattern 2: Placeholder not resolved -->

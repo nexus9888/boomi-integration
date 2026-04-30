@@ -10,7 +10,7 @@ This is the Boomi Process Development Framework - a reusable skill that enables 
 - **boomi-integration skill**: Reusable infrastructure, tools, documentation
 - **active-development/** (project root): All working files - components, sync state, feedback
 
-**Running CLI tools**: `<skill-path>` = the directory this SKILL.md was loaded from. If this file is at `/home/user/.claude/plugins/bc-integration/skills/boomi-integration/SKILL.md`, then `<skill-path>` is `/home/user/.claude/plugins/bc-integration/skills/boomi-integration`. All script invocations throughout the documentation use `<skill-path>/scripts/` — always substitute the real absolute path when constructing bash commands. Run from the project workspace directory so `.env` and `active-development/` are found correctly.
+**Running CLI tools**: `<skill-path>` = the directory this SKILL.md was loaded from. For example, if this file is at `/path/to/boomi-integration/SKILL.md`, then `<skill-path>` is `/path/to/boomi-integration`. All script invocations throughout the documentation use `<skill-path>/scripts/` — always substitute the real absolute path when constructing bash commands. Run from the project workspace directory so `.env` and `active-development/` are found correctly.
 
 ## Documentation Architecture
 
@@ -35,7 +35,7 @@ This is the Boomi Process Development Framework - a reusable skill that enables 
 - **Version management**: version_management_guide.md + cli_tool_reference.md version management section
 
 ## First-Time User Detection
-**Check before starting any Boomi work**: The `scripts/` directory is provided by this skill — ensure it is loaded before invoking CLI tools. Run `bash <skill-path>/scripts/boomi-env-check.sh` to see which variables are SET vs UNSET (values are never exposed). Then run `bash <skill-path>/scripts/boomi-folder-create.sh --test-connection` to verify platform access. If credentials are missing, guide the user through `references/guides/user_onboarding_guide.md` or `/bc-integration:env-setup-guide`.
+**Check before starting any Boomi work**: The `scripts/` directory is provided by this skill — ensure it is loaded before invoking CLI tools. Run `bash <skill-path>/scripts/boomi-env-check.sh` to see which variables are SET vs UNSET (values are never exposed). Then run `bash <skill-path>/scripts/boomi-folder-create.sh --test-connection` to verify platform access. If credentials are missing, guide the user through `references/guides/user_onboarding_guide.md`.
 
 ## Connection Discovery & Credential Security
 **Connection re-use is recommended.** Pulling existing connections keeps credentials out of the conversation. Offer the connection discovery workflow first, but respect the user's choice if they prefer to provide credentials directly. See `references/BOOMI_THINKING.md` § Connection Discovery for the full workflow.
@@ -427,7 +427,7 @@ See `references/guides/boomi_error_reference.md` Issue #3 for details.
 
 ### Folder Management & Component Creation
 **Organization Hierarchy:**
-- Root → ClaudeCode (`BOOMI_TARGET_FOLDER`) → Project-Specific → Components
+- Root → AgentWorkspace (`BOOMI_TARGET_FOLDER`) → Project-Specific → Components
 - **ALL components MUST go into organized folders**, never create components into the account root
 - Create project folders using naming convention: `ProjectName-ShortDescription`
 - Example: `bash <skill-path>/scripts/boomi-folder-create.sh "AcmeCorp-EmailNotification"`
@@ -473,6 +473,39 @@ When dependencies are unavailable (missing credentials, GUI-required components,
 - Set Properties: Use `shapetype="documentproperties"` NOT `"setproperties"`
 - Map step: Simple `<map mapId="guid"/>` with no child elements
 - Missing display attributes: Include `name` and `propertyName` for GUI
+
+## Canvas Arranging
+
+After building or modifying a Boomi process, run the canvas arranger to validate step-path integrity and organize the layout for clean visual presentation in the Boomi GUI:
+
+```bash
+python3 <skill-path>/scripts/boomi-canvas-arrange.py <path-to-process-xml>
+```
+
+**When to use:**
+- After creating a new process from scratch
+- After adding shapes, branches, or error handling to an existing process
+- Before pushing a process to the platform (so the canvas is readable in the GUI)
+- When a user asks to "clean up" or "arrange" the canvas
+
+**Options:**
+- `--dry-run` — Report issues without modifying the file
+- `--no-layout` — Fix integrity issues only, don't rearrange layout
+
+**What it checks:**
+- Orphaned shapes (not reachable from start)
+- Non-terminal shapes with no outbound connections
+- Dragpoints with `toShape="unset"`
+- Dragpoints pointing to non-existent shapes
+
+**What it arranges:**
+- Main flow left-to-right with consistent spacing
+- Branch outputs stacked vertically below the main flow
+- Nested branches get their own vertical space
+- Merge points positioned between shorter branches
+- Orphaned shapes placed below the main flow
+
+Run this script from the project workspace directory where the process XML lives.
 
 ## Reference
 
