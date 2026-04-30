@@ -4,7 +4,7 @@ Forked from [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/b
 
 ## What's Custom
 
-- Canvas arranger script (standalone, replaces Claude Code agent)
+- ✅ Canvas arranger script (`scripts/boomi-canvas-arrange.py`)
 - Team-specific tuning for Gemini CLI workflows
 - (Add more as you customize)
 
