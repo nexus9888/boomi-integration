@@ -187,6 +187,38 @@ The skill includes the following Boomi-centric reference documentation:
   - Process Call, Return Documents
   - Event Streams, Salesforce
 
+## Roadmap / Future Ideas
+
+Ideas for extending this fork. Contributions and private forks welcome.
+
+### Integration-Specific Patterns
+- Pre-built reference docs for common integration domains (identity management, ERP, CRM, finance)
+- Domain-specific connector templates — field mappings, error handling, retry logic tailored to specific systems
+- Gotcha guides — the things that catch you out on specific connectors that aren't in the official docs
+
+### Testing Skill
+- Automated test suite for core integrations — validate field mappings, check edge cases, verify error handling
+- Execution result analysis — parse process logs and flag anomalies
+- Regression testing patterns — snapshot known-good outputs, diff against new runs
+
+### Reusable Component Library
+- Pre-built connection configs for common systems (with credential patterns)
+- Profile templates for standard data formats used across projects
+- Process skeletons — boilerplate for common patterns (poll → transform → push, API gateway, error handler)
+- Map templates for frequent transformations
+
+### Environment Knowledge
+- Per-team configuration: runtime IDs, folder structures, naming conventions, deployment targets
+- Company-specific patterns: security requirements, approval workflows, change management
+- Private fork support: `.env.example` tuned for your org, internal documentation references
+
+### Advanced Agent Features
+- Boomi code review agent — validate process XML quality, flag anti-patterns, check naming conventions
+- Lightweight integration planning — checklist-based pre-build analysis for complex multi-system integrations
+- Deployment pipeline integration — CI/CD hooks for automated push, deploy, test cycles
+
+---
+
 ## Support and Issues
 
 This skill is designed originally for Claude Code, but Agent Skills are an open standard accessible to other models and platforms. 
