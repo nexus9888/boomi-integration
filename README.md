@@ -1,4 +1,24 @@
-# boomi-integration Skill
+# boomi-integration Skill (Gemini CLI Fork)
+
+> **This is a fork** of [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/boomi-integration), tuned for use with **Google Gemini CLI** and other non-Claude agents.
+>
+> ### What's different from upstream
+>
+> - **`GEMINI.md`** added alongside `CLAUDE.md` — both agents are now supported out of the box
+> - **Claude-specific references removed** from `SKILL.md` — path examples, slash command references, and folder names are now agent-agnostic
+> - **Standalone canvas arranger** (`scripts/boomi-canvas-arrange.py`) — replaces the Claude Code agent with a portable Python script that works with any agent. Validates step-path integrity (orphans, broken connections, unset dragpoints) and arranges shape layout for clean visual presentation in the Boomi GUI
+> - **Canvas arranger wired into SKILL.md** — agents are instructed to run it automatically after building or modifying processes
+>
+> ### Staying up to date with upstream
+>
+> ```bash
+> git fetch upstream
+> git merge upstream/main
+> ```
+>
+> Upstream changes may occasionally re-introduce Claude-specific wording — check for conflicts in `SKILL.md` and `references/` after merging.
+
+---
 
 The official Boomi Companion skill for building Boomi integration processes programmatically with AI coding agents. The intended audience of this README.md document is humans seeking to understand the skill.
 
