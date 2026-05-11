@@ -1,11 +1,13 @@
-# Boomi Integration — Tuned Fork
+# Boomi Integration — Team Fork
 
-Forked from [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/boomi-integration) for team use with Gemini CLI and custom tooling.
+Forked from [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/boomi-integration) for team use with OpenCode and custom tooling.
 
 ## What's Custom
 
 - ✅ Canvas arranger script (`scripts/boomi-canvas-arrange.py`)
-- Team-specific tuning for Gemini CLI workflows
+- ✅ OpenCode-optimized instruction files (`OPENCODE.md`, `AGENTS.md`)
+- ✅ Project template with scaffolding (`template/`)
+- ✅ Provider-agnostic — works with any model via OpenCode
 - (Add more as you customize)
 
 ## Staying Up To Date
@@ -25,5 +27,12 @@ gh repo sync nexus9888/boomi-integration -b main
 
 ```bash
 git clone https://github.com/nexus9888/boomi-integration.git
-# Point your agent's skill path to the cloned directory
+
+# Copy the template to start a new project
+cp -r boomi-integration/template/ ~/workspace/my-boomi-project/
+cd ~/workspace/my-boomi-project/
+cp .env.example .env  # Fill in your credentials
+
+# OpenCode will auto-load OPENCODE.md + AGENTS.md from the project root
+opencode run 'Verify Boomi connection — run boomi-env-check.sh and boomi-folder-create.sh --test-connection'
 ```

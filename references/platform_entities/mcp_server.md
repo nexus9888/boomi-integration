@@ -9,14 +9,14 @@ The MCP (Model Context Protocol) Server Connector transforms deployed Boomi proc
 **Connector Type:** `officialboomi-X3979C-mcp-prod`
 
 **Use Cases:**
-- Expose Boomi integrations to AI assistants (Claude, ChatGPT, etc.)
+- Expose Boomi integrations to AI assistants (OpenCode, Claude, ChatGPT, etc.)
 - Create tool-based interfaces for automated workflows
 - Bridge enterprise systems with AI agent frameworks
 
 ## Architecture
 
 ```
-AI Agent (Claude, etc.)
+AI Agent (OpenCode, Claude, etc.)
     ↓ MCP Protocol (SSE)
 Boomi Runtime (on-premise)
     ↓
@@ -124,10 +124,23 @@ Components must be created in this order:
 
 ## Client Configuration
 
-### Claude Desktop
+### OpenCode / Claude Desktop / Any MCP Client
 
-Add to `claude_desktop_config.json` (Settings > Developer > Edit Config):
+The Boomi MCP Server exposes tools via SSE at `http://localhost:8000/mcp/<service>/sse`. Any MCP-compatible client can connect:
 
+**OpenCode** (`opencode.json` or `~/.config/opencode/opencode.json`):
+```json
+{
+  "mcp": {
+    "shopify": {
+      "type": "sse",
+      "url": "http://localhost:8000/mcp/shopify/sse"
+    }
+  }
+}
+```
+
+**Claude Desktop** (`claude_desktop_config.json`, Settings > Developer > Edit Config):
 ```json
 {
   "mcpServers": {

@@ -1,4 +1,6 @@
-# boomi-integration Skill
+# boomi-integration Skill (Claude Code users: see also OPENCODE.md)
+
+> **Note:** `OPENCODE.md` is the primary instruction file for this fork. If you're using OpenCode, load that instead. This file is kept for Claude Code compatibility.
 
 ## What This Is
 

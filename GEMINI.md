@@ -1,3 +1,11 @@
+# ⚠️ DEPRECATED — use OPENCODE.md instead
+
+This file is kept for legacy compatibility with Gemini CLI. OpenCode is now the recommended agent runtime for this fork. It supports Gemini models via OpenRouter (`openrouter/google/gemini-2.5-pro`) and offers a better experience than the standalone Gemini CLI.
+
+See `OPENCODE.md` for the current primary instruction file.
+
+---
+
 # boomi-integration Skill
 
 ## What This Is

@@ -1,0 +1,101 @@
+# Boomi Integration Project (OpenCode)
+
+This is a Boomi-oriented workspace. Load and use the `boomi-integration` skill for all Boomi tasks. OpenCode is the recommended agent runtime — it's provider-agnostic and supports any model you've configured (Anthropic, Google, OpenAI, OpenRouter, etc.).
+
+## Getting Started
+
+The skill contains `.sh` CLI tools for all common tasks. Always look for these tools as a first option. The path to run them is `<skill-base-path>/scripts/*`.
+
+If you find yourself needing to craft custom `curl` — stop and discuss with the user before proceeding. This is unexpected.
+
+If you attempt to call into the Boomi platform and get an auth error — stop and discuss with the user before proceeding. Repeated calls with invalid auth will get us locked out of the platform.
+
+If you are asked to build an integration and are not presented that skill in your initial context — alert the user. The skill includes critical information for your project.
+
+## Peripheral Skills
+
+You might find that you have access to other Boomi peripheral skills. Use these if the user asks you to, or you may offer them.
+
+If available, `boomi-marketplace` skill allows you to query from a library of assets and template implementations. Discuss with the user before importing assets to an account.
+
+## Credentials & .env Files
+
+You will not be able to read `.env` files directly — access is blocked by project settings by default. The CLI tools load credentials internally via `source .env` in bash. Variables expand inside the bash subprocess; you never see the resolved values, even in transcript history.
+
+Checking credentials: Load the `boomi-integration` skill first (the `scripts/` directory comes from the skill, not this workspace). Run `bash scripts/boomi-env-check.sh` to see which variables are SET vs UNSET. Run `bash scripts/boomi-folder-create.sh --test-connection` to verify platform connectivity. If credentials are missing, guide the user through the credential setup steps (see `scripts/boomi-env-check.sh` output for what's needed).
+
+**Credential philosophy for component XML:**
+- Prefer pulling from platform: Production credentials should be configured in the Boomi GUI. Pull the component to get pre-encrypted values — this keeps secrets out of the conversation.
+- User-provided credentials are OK: If a user shares a credential directly (e.g., "here's the API key"), you may use it in component XML. If it appears to be a production secret, remind them of the pull-from-platform option — but respect their choice.
+- Avoid reciting credentials in plans, summaries, or overviews — they could be visible during screen sharing or accidentally exposed to the agent context window.
+
+## Workflow and Style
+
+After you build something in Boomi, share the exact process names and folder name so that the user can find them easily.
+
+Your context window will be automatically compacted as it approaches its limit, allowing you to continue working indefinitely from where you left off. Therefore, do not stop tasks early due to token budget concerns. As you approach your token budget limit, save your current progress and state to files and memory before the context window refreshes. Always be as persistent and autonomous as possible and complete tasks fully, even if the end of your budget is approaching. Never artificially stop any task early regardless of the context remaining.
+
+After completing a task that involves tool use, provide a quick summary of the work you've done.
+
+If curl returns exit code 35 (SSL handshake failure), alert the user to check Zscaler or corporate VPN before troubleshooting.
+
+## Canvas Arranging
+
+After building or modifying a Boomi process, run the canvas arranger script to validate step-path integrity and organize the layout:
+
+```bash
+python3 <skill-base-path>/scripts/boomi-canvas-arrange.py <path-to-process-xml>
+```
+
+This checks for broken connections, orphaned shapes, and repositions shapes for a clean visual layout in the Boomi GUI. Run it automatically after every process build or modification — don't wait to be asked.
+
+## OpenCode-Specific Instructions
+
+### Models
+
+OpenCode supports any provider configured in `~/.local/share/opencode/auth.json`. For Boomi work, these models perform well:
+
+- `openrouter/anthropic/claude-sonnet-4-20250514` — Best for complex XML generation and multi-step integration design
+- `openrouter/openai/gpt-4o` — Strong alternative when Claude is unavailable
+- `openrouter/google/gemini-2.5-pro` — Good for quick tasks and cost-sensitive work
+
+Use `--thinking` for complex process designs that involve branching logic, error handling, or multi-system orchestration.
+
+### One-Shot Patterns
+
+Use `opencode run` for bounded tasks:
+
+```bash
+opencode run 'Build a REST listener to Database insert process.
+Read SKILL.md and references/components/process_component.md.
+Create process.xml in active-development/processes/.
+Run canvas arranger after. Push to platform.'
+--model openrouter/anthropic/claude-sonnet-4-20250514
+```
+
+Attach specific reference files with `-f` when you only need a subset:
+```bash
+opencode run 'Build a decision step that routes orders by region' \
+  -f SKILL.md -f references/BOOMI_THINKING.md -f references/steps/route_step.md
+```
+
+### Interactive Sessions
+
+For multi-turn development, use the TUI:
+```bash
+opencode --title 'Boomi: Order Processing'
+```
+- `Enter` twice to submit a message
+- `Tab` to switch between agents (build/plan)
+- `Ctrl+P` for command palette
+- `Ctrl+C` to exit (not `/exit` — that opens the agent selector)
+
+### Fallback Instructions
+
+If this file (`OPENCODE.md`) is not loaded, OpenCode will fall back to `AGENTS.md`. Both files are maintained in sync. If you notice discrepancies between them, follow `OPENCODE.md` and note the inconsistency.
+
+## Make It Good
+
+If the user asks you to "make it good," that is a shorthand reminder to work through the objective's tasks and the skill's instructions thoughtfully, accurately, and mindfully, thinking step by step.
+
+The assistant is OpenCode, operating as the Boomi Companion Agent (sometimes called 'the agent').

@@ -1,14 +1,30 @@
-# boomi-integration Skill (Gemini CLI Fork)
+# boomi-integration Skill (OpenCode Fork)
 
-> **This is an unofficial community fork** of [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/boomi-integration), tuned for use with **Google Gemini CLI** and other non-Claude agents. It is not affiliated with or endorsed by Boomi, LP.
+> **This is an unofficial community fork** of [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/boomi-integration), optimized for use with **OpenCode** and other provider-agnostic coding agents. It is not affiliated with or endorsed by Boomi, LP.
 >
 > ### What's different from upstream
 >
-> - **`GEMINI.md`** added alongside `CLAUDE.md` — both agents are now supported out of the box
-> - **`AGENTS.md`** added — the emerging cross-platform standard, natively loaded by OpenCode and OpenAI Codex, and also read by Claude Code and Gemini CLI
+> - **`OPENCODE.md`** added as the primary instruction file — OpenCode loads this automatically alongside `AGENTS.md`
+> - **`AGENTS.md`** added — the emerging cross-platform standard, natively loaded by OpenCode, OpenAI Codex, Claude Code, and Gemini CLI
+> - **`CLAUDE.md`** kept for backward compatibility with Claude Code users
+> - **`GEMINI.md`** — deprecated in favor of `OPENCODE.md`; kept for legacy compatibility
 > - **Claude-specific references removed** from `SKILL.md` — path examples, slash command references, and folder names are now agent-agnostic
 > - **Standalone canvas arranger** (`scripts/boomi-canvas-arrange.py`) — replaces the Claude Code agent with a portable Python script that works with any agent. Validates step-path integrity (orphans, broken connections, unset dragpoints) and arranges shape layout for clean visual presentation in the Boomi GUI
 > - **Canvas arranger wired into SKILL.md** — agents are instructed to run it automatically after building or modifying processes
+>
+> ### Recommended Agent Runtime: OpenCode
+>
+> OpenCode is provider-agnostic — it supports Anthropic, Google Gemini, OpenAI, OpenRouter, and custom providers. This means you get Claude Code-quality Boomi development with any model you prefer, without needing separate Gemini CLI scripts.
+>
+> ```bash
+> # Install
+> npm i -g opencode-ai@latest
+> opencode auth login
+>
+> # Use
+> opencode run 'Build a REST listener to Database process' \
+>   --model openrouter/anthropic/claude-sonnet-4-20250514
+> ```
 >
 > ### Staying up to date with upstream
 >
@@ -48,6 +64,13 @@ This is a distributable skill that provides AI coding agents with knowledge and 
 
 ## Installation
 
+### OpenCode (Recommended)
+
+1. Install OpenCode: `npm i -g opencode-ai@latest`
+2. Authenticate: `opencode auth login`
+3. Clone this fork into your skill directory
+4. OpenCode will auto-load `OPENCODE.md` and `AGENTS.md` when working in a Boomi project
+
 ### Claude Code (via the bc-integration plugin)
 
 Install through the Claude Code plugin system — the skill is included automatically:
@@ -60,6 +83,36 @@ Alternatively, navigate the `/plugin` menu interactively within Claude Code to a
 ### Manual configuration
 
 Clone or copy this skill directory into the location your platform uses for agent skills. Consult your platform's documentation for the correct skill directory path.
+
+### Quick Start with Template
+
+The `template/` directory provides everything you need for a new Boomi project:
+
+```bash
+# 1. Copy the template
+cp -r boomi-integration/template/ ~/workspace/my-boomi-project/
+cd ~/workspace/my-boomi-project/
+
+# 2. Set up credentials
+cp .env.example .env
+# Edit .env with your Boomi API credentials
+
+# 3. Verify
+bash <path-to-skill>/scripts/boomi-env-check.sh
+bash <path-to-skill>/scripts/boomi-folder-create.sh --test-connection
+
+# 4. Start building
+opencode run 'Build a REST listener to Database process...'
+```
+
+The template includes:
+- `opencode.json` — model config (default: Claude Sonnet 4 via OpenRouter)
+- `OPENCODE.md` — project-level agent instructions
+- `AGENTS.md` — universal fallback instructions
+- `.env.example` — credentials template
+- `.gitignore` — pre-configured for Boomi projects
+- `active-development/` — directory structure for components
+- `.opencode/` — OpenCode agents/commands (extensible)
 
 ## Project Setup
 
@@ -221,13 +274,27 @@ Ideas for extending this fork. Contributions and private forks welcome.
 
 ## Support and Issues
 
-This skill is designed originally for Claude Code, but Agent Skills are an open standard accessible to other models and platforms. 
+This skill is designed to be agent-agnostic, with OpenCode as the recommended runtime. Agent Skills are an open standard accessible to multiple models and platforms.
 
-More info about agent skills can be found here: https://agentskills.io/home
-and here: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
+### OpenCode Troubleshooting
 
-If you encounter issues:
+| Problem | Fix |
+|---------|-----|
+| OpenCode can't find skill scripts | Ensure fork is cloned at `~/workspace/boomi-integration/`. Check `opencode --version`. |
+| Auth errors on Boomi API | Run `bash <skill-path>/scripts/boomi-env-check.sh` to verify credentials are set. |
+| Model not found | Check `opencode auth list` — ensure provider is configured. Use `openrouter/` prefix for OpenRouter models. |
+| SSL handshake failures (exit 35) | Check Zscaler or corporate VPN. |
+| Canvas arranger drops XML comments | Expected — `xml.etree.ElementTree` strips comments. Boomi doesn't depend on them. |
 
-1. This course provides an excellent intro to Claude Code: https://anthropic.skilljar.com/claude-code-in-action
-2. We would love your feedback and input via solutions@boomi.com
-3. Your AI agent can often help troubleshoot and explain issues
+### Upstream Boomi Skill Resources
+
+- Agent Skills overview: https://agentskills.io/home
+- Claude Code skill docs: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
+- Claude Code intro course: https://anthropic.skilljar.com/claude-code-in-action
+- Official feedback: solutions@boomi.com
+
+### OpenCode Resources
+
+- Docs: https://opencode.ai/docs
+- GitHub: https://github.com/anomalyco/opencode
+- Config reference: https://opencode.ai/config.json

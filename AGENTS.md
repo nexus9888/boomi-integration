@@ -1,5 +1,7 @@
 # boomi-integration Skill
 
+> **Note:** `OPENCODE.md` is the primary instruction file for this fork with OpenCode-specific guidance. This file (`AGENTS.md`) is the universal fallback loaded by all agent platforms.
+
 ## What This Is
 
 The boomi-integration skill — a framework for AI coding agents to build Boomi integration processes programmatically. See `README.md` for full details.
