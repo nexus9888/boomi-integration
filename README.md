@@ -217,6 +217,31 @@ The skill makes the following CLI tools available to the agent:
 - `boomi-profile-inspect.py` - Extracts field metadata from large profiles (Python stdlib)
 - `event-streams-setup.sh` - Configures Event Streams
 
+## Canvas Arranger
+
+This fork includes a standalone canvas arranger (`scripts/boomi-canvas-arrange.py`) — a portable Python script that replaces the original Claude Code agent. It works with any agent runtime.
+
+### What It Does
+
+- **Validates** step-path integrity: orphaned shapes, broken connections, unset `toShape` attributes, missing targets
+- **Arranges** shape layout for clean visual presentation in the Boomi GUI: left-to-right flow, vertical branch spacing, merge point positioning
+
+### Usage
+
+```bash
+python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml           # Full run
+python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml --dry-run  # Preview only
+python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml --no-layout # Integrity check only
+```
+
+**Exit codes:** `0` = clean, `1` = issues found, `2` = error.
+
+**Layout rules:** 192px horizontal spacing, 160px between branches, 112px sub-branch offset. Merge points positioned toward shorter branches. Orphans placed below main flow.
+
+### Pitfall
+
+Python's `xml.etree.ElementTree` strips XML comments (`<!-- -->`). The arranger will drop any comments in your process XML. Boomi doesn't depend on comments — this is cosmetic only.
+
 ## Documentation Structure
 
 The skill includes the following Boomi-centric reference documentation:
