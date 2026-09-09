@@ -58,19 +58,22 @@ Customizing the step name causes GUI display issues. Keep step names generic and
 
 ## Custom Scripting (Process Type 12)
 
-Covers:
+Inline or component-backed scripting in Groovy (1.5/2.4) or JavaScript. See `references/steps/data_process_custom_scripting.md`, which covers:
 - Development philosophy: Minimalism and reliability
 - Mandatory dataContext loop pattern
 - Dynamic Document Properties (DDPs) and Dynamic Process Properties (DPPs)
 - Complete working examples
+- Scripting languages and language tokens
+- Referencing a reusable Process Script component (`type="script.processing"`)
 - Critical rules and gotchas
 - Common patterns reference
 
 **Quick reference**:
 - Step name MUST be `name="Custom Scripting"` (use `userlabel=""` for description)
 - ALWAYS call `dataContext.storeStream()` or document disappears
+- Default to Groovy 2.4 (`language="groovy2"`); JavaScript (`javascript`) and Groovy 1.5 (`groovy`) are also supported
 - Keep scripts minimal
-- Prefer native Boomi components over complex Groovy
+- Prefer native Boomi components over complex scripting
 
 ## Search/Replace (Process Type 1)
 
@@ -150,6 +153,12 @@ For XML splitting:
   </SplitOptions>
 </documentsplit>
 ```
+
+### Output Document Shape
+
+A split is a filter, not an unwrap — each output document keeps the parent wrapper with the split element reduced to one occurrence. `{"orders":[A,B,C]}` yields `{"orders":[A]}`, `{"orders":[B]}`, `{"orders":[C]}`, never bare `A`/`B`/`C`. XML behaves the same.
+
+Downstream steps must therefore reuse the pre-split profile and its nested keys (`Root/Object/orders/orders/ArrayElement1/Object/id`, not `Root/Object/id`). A flattened single-element profile fails — see `references/guides/boomi_error_reference.md` Issue #34 for the per-step failure modes.
 
 ## Combine Documents (Process Type 9)
 
@@ -253,11 +262,11 @@ The step includes other available operations that we've left out of scope on thi
 | 7 | Base64 Decode | None |
 | 8 | Split Documents | `<documentsplit>` |
 | 9 | Combine Documents | `<dataprocesscombine>` |
-| 12 | Custom Scripting (Groovy) | `<dataprocessscript>` - See references/steps/data_process_groovy_step.md |
+| 12 | Custom Scripting | `<dataprocessscript>` - See references/steps/data_process_custom_scripting.md |
 
 ## Important Notes
 - Operations execute in index order
 - Each step needs unique index and key values
 - Most operations stream data (memory efficient)
 - Split/Combine operations require profile components
-- Custom Scripting (Groovy) has extensive requirements including language and useCache attributes (see references/steps/data_process_groovy_step.md)
+- Custom Scripting requires the `language` attribute on `<dataprocessscript>` (`useCache` is an optional performance flag); see references/steps/data_process_custom_scripting.md

@@ -11,7 +11,7 @@ Usage:
 
 Options:
     --dry-run     Report issues without modifying the file
-    --no-layout   Fix integrity issues only, don't rearrange layout
+    --no-layout   Check integrity only; do not rewrite the file
 
 Exit codes:
     0   Clean — no integrity issues found
@@ -32,7 +32,7 @@ BNS = "http://api.platform.boomi.com/"
 NS = {"bns": BNS}
 
 # Layout spacing
-H_SPACING = 192.0        # horizontal gap between sequential shapes
+H_SPACING = 225.0        # upstream-recommended gap between sequential shapes
 V_SPACING = 160.0        # vertical gap between main branches
 V_SUB_SPACING = 112.0    # vertical offset for sub-branches
 START_X = 48.0
@@ -276,24 +276,53 @@ def compute_layout(shapes: dict[str, Shape]) -> dict[str, tuple[float, float]]:
         for tgt in targets:
             reverse_adj[tgt].append(src)
 
-    # ── Step 1: Assign layers (x position) via BFS ──
-    layers: dict[str, int] = {}
+    # ── Step 1: Assign layers (x position) ──
+    # Prefer longest-path layers for acyclic process graphs so merge points sit
+    # after every inbound branch. If the graph contains a cycle, fall back to
+    # first-discovery BFS layers; repeatedly maximizing layers around a cycle
+    # never converges.
+    reachable = set()
     queue = deque([start.name])
-    layers[start.name] = 0
-
     while queue:
         current = queue.popleft()
-        current_layer = layers[current]
+        if current in reachable:
+            continue
+        reachable.add(current)
+        queue.extend(t for t in adjacency.get(current, []) if t not in reachable)
+
+    indegree = {name: 0 for name in reachable}
+    for source in reachable:
+        for target in adjacency.get(source, []):
+            if target in indegree:
+                indegree[target] += 1
+
+    topo_queue = deque(sorted(name for name, degree in indegree.items() if degree == 0))
+    topo_order = []
+    while topo_queue:
+        current = topo_queue.popleft()
+        topo_order.append(current)
         for target in adjacency.get(current, []):
-            new_layer = current_layer + 1
-            # If target already has a layer, take the max (merge point)
-            if target in layers:
-                layers[target] = max(layers[target], new_layer)
-                # Re-process downstream of merge points
-                queue.append(target)
-            else:
-                layers[target] = new_layer
-                queue.append(target)
+            if target not in indegree:
+                continue
+            indegree[target] -= 1
+            if indegree[target] == 0:
+                topo_queue.append(target)
+
+    layers: dict[str, int] = {start.name: 0}
+    if len(topo_order) == len(reachable):
+        for current in topo_order:
+            current_layer = layers.get(current, 0)
+            for target in adjacency.get(current, []):
+                if target in reachable:
+                    layers[target] = max(layers.get(target, 0), current_layer + 1)
+    else:
+        queue = deque([start.name])
+        while queue:
+            current = queue.popleft()
+            for target in adjacency.get(current, []):
+                if target not in layers:
+                    layers[target] = layers[current] + 1
+                    queue.append(target)
 
     # Assign layer 0 to any unreached shapes (orphans)
     max_existing_layer = max(layers.values()) if layers else 0
@@ -411,7 +440,7 @@ def apply_positions(shapes: dict[str, Shape], positions: dict[str, tuple[float, 
     """Update shape x/y attributes in the XML. Dragpoint positions left unchanged."""
     for name, (x, y) in positions.items():
         shape = shapes.get(name)
-        if not shape or not shape.element:
+        if shape is None or shape.element is None:
             continue
 
         # Update shape position only — dragpoints keep their relative offsets
@@ -514,11 +543,12 @@ def main():
     print_report(issues, shapes, positions)
 
     # Apply changes
-    if not dry_run:
-        if positions:
-            apply_positions(shapes, positions)
+    if not dry_run and positions:
+        apply_positions(shapes, positions)
         tree.write(filepath, xml_declaration=True, encoding="UTF-8")
         print(f"\n💾 Updated: {filepath}")
+    elif not dry_run:
+        print("\n🔎 Integrity-only run — file unchanged")
     else:
         print(f"\n🔍 Dry run — no changes written")
 

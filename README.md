@@ -1,41 +1,13 @@
 # boomi-integration Skill (OpenCode Fork)
 
-> **This is an unofficial community fork** of [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/boomi-integration), optimized for use with **OpenCode** and other provider-agnostic coding agents. It is not affiliated with or endorsed by Boomi, LP.
+> **Unofficial community fork:** this repository tracks
+> [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/boomi-integration)
+> and adds provider-agnostic agent instructions, an OpenCode project template,
+> and a standalone process-canvas arranger. It is not affiliated with or
+> endorsed by Boomi, LP.
 >
-> ### What's different from upstream
->
-> - **`OPENCODE.md`** added as the primary instruction file — OpenCode loads this automatically alongside `AGENTS.md`
-> - **`AGENTS.md`** added — the emerging cross-platform standard, natively loaded by OpenCode, OpenAI Codex, Claude Code, and Gemini CLI
-> - **`CLAUDE.md`** kept for backward compatibility with Claude Code users
-> - **`GEMINI.md`** — deprecated in favor of `OPENCODE.md`; kept for legacy compatibility
-> - **Claude-specific references removed** from `SKILL.md` — path examples, slash command references, and folder names are now agent-agnostic
-> - **Standalone canvas arranger** (`scripts/boomi-canvas-arrange.py`) — replaces the Claude Code agent with a portable Python script that works with any agent. Validates step-path integrity (orphans, broken connections, unset dragpoints) and arranges shape layout for clean visual presentation in the Boomi GUI
-> - **Canvas arranger wired into SKILL.md** — agents are instructed to run it automatically after building or modifying processes
->
-> ### Recommended Agent Runtime: OpenCode
->
-> OpenCode is provider-agnostic — it supports Anthropic, Google Gemini, OpenAI, OpenRouter, and custom providers. This means you get Claude Code-quality Boomi development with any model you prefer, without needing separate Gemini CLI scripts.
->
-> ```bash
-> # Install
-> npm i -g opencode-ai@latest
-> opencode auth login
->
-> # Use
-> opencode run 'Build a REST listener to Database process' \
->   --model openrouter/anthropic/claude-sonnet-4-20250514
-> ```
->
-> ### Staying up to date with upstream
->
-> ```bash
-> git fetch upstream
-> git merge upstream/main
-> ```
->
-> Upstream changes may occasionally re-introduce Claude-specific wording — check for conflicts in `SKILL.md` and `references/` after merging.
-
----
+> Fork-owned additions are documented in [`FORK.md`](FORK.md). Upstream Boomi
+> documentation and tooling take precedence when the two conflict.
 
 The official Boomi Companion skill for building Boomi integration processes programmatically with AI coding agents. The intended audience of this README.md document is humans seeking to understand the skill.
 
@@ -43,9 +15,28 @@ The official Boomi Companion skill for building Boomi integration processes prog
 
 This project is licensed under the [BSD-2-Clause License](LICENSE). If you fork or modify this code, you should not use the name "Boomi" for your version.
 
+## Documentation
+
+For a full overview of Boomi Companion, including concepts, usage guidance, and additional resources, see the [Boomi Companion overview](https://developer.boomi.com/docs/BoomiCompanion/Boomi_companion_overview) on the Boomi Developer Portal.
+
+## Related Plugins & Skills
+
+This skill is also part of [Boomi Companion](https://github.com/OfficialBoomi/boomi-companion), which includes the following Claude Code plugins:
+
+| Plugin | Description |
+|--------|-------------|
+| [bc-integration](https://github.com/OfficialBoomi/bc-integration) | Skills, commands, and agents for building Boomi integrations |
+| [bc-marketplace](https://github.com/OfficialBoomi/bc-marketplace) | Skill for searching and installing Boomi Marketplace recipes |
+
+Other skills available as standalone packages for use with other AI agents:
+
+| Skill | Description |
+|--------|-------------|
+| [boomi-marketplace](https://github.com/OfficialBoomi/boomi-marketplace) | Skill for searching and installing Boomi Marketplace recipes |
+
 ## Feedback & Issues
 
-Found a bug or have a feature idea? Email solutions@boomi.com with a clear description, steps to reproduce, and any relevant error messages.
+Found a bug or have a feature idea? Email developer-offerings@boomi.com with a clear description, steps to reproduce, and any relevant error messages.
 
 ## What is this?
 
@@ -64,12 +55,12 @@ This is a distributable skill that provides AI coding agents with knowledge and 
 
 ## Installation
 
-### OpenCode (Recommended)
+### OpenCode (recommended for this fork)
 
-1. Install OpenCode: `npm i -g opencode-ai@latest`
+1. Install OpenCode: `npm install -g opencode-ai@latest`
 2. Authenticate: `opencode auth login`
-3. Clone this fork into your skill directory
-4. OpenCode will auto-load `OPENCODE.md` and `AGENTS.md` when working in a Boomi project
+3. Clone this repository into the skill directory used by your agent runtime.
+4. Start projects from the included template (see below).
 
 ### Claude Code (via the bc-integration plugin)
 
@@ -84,35 +75,20 @@ Alternatively, navigate the `/plugin` menu interactively within Claude Code to a
 
 Clone or copy this skill directory into the location your platform uses for agent skills. Consult your platform's documentation for the correct skill directory path.
 
-### Quick Start with Template
-
-The `template/` directory provides everything you need for a new Boomi project:
+### Quick start from the project template
 
 ```bash
-# 1. Copy the template
 cp -r boomi-integration/template/ ~/workspace/my-boomi-project/
 cd ~/workspace/my-boomi-project/
-
-# 2. Set up credentials
 cp .env.example .env
-# Edit .env with your Boomi API credentials
-
-# 3. Verify
-bash <path-to-skill>/scripts/boomi-env-check.sh
-bash <path-to-skill>/scripts/boomi-folder-create.sh --test-connection
-
-# 4. Start building
-opencode run 'Build a REST listener to Database process...'
+# Fill in .env, then run the skill's environment and connection checks.
 ```
 
-The template includes:
-- `opencode.json` — model config (default: Claude Sonnet 4 via OpenRouter)
-- `OPENCODE.md` — project-level agent instructions
-- `AGENTS.md` — universal fallback instructions
-- `.env.example` — credentials template
-- `.gitignore` — pre-configured for Boomi projects
-- `active-development/` — directory structure for components
-- `.opencode/` — OpenCode agents/commands (extensible)
+The template includes OpenCode and cross-agent instruction files, a safe
+`.gitignore`, an environment template, and the `active-development/` state
+directories. Component-type directories are created on demand by the upstream
+tools using Boomi's lowercase identifiers (for example `process/`,
+`profile.json/`, `connector-settings/`, and `connector-action/`).
 
 ## Project Setup
 
@@ -124,15 +100,9 @@ Once the skill is installed it works in an individual project folder as follows:
 your-project/
 ├── .env                    # Your credentials (created during setup)
 └── active-development/     # All working files (auto-created as needed)
-    ├── processes/          # Process XML files
-    ├── profiles/           # Profile XML files
-    ├── connections/        # Connection XML files
-    ├── operations/         # Operation XML files
-    ├── maps/               # Map XML files
-    ├── document-caches/    # Document cache XML files
-    ├── scripts/            # Script XML files
+    ├── <component-type>/   # Component-type folders are created on demand using the platform's lowercase component-type identifier — e.g. process/, transform.map/, profile.json/, profile.xml/, connector-settings/, connector-action/, documentcache/.
     ├── .sync-state/        # Component sync state tracking
-    └── feedback/           # Test execution results
+    └── feedback/           # Test execution results (created on demand)
 ```
 
 If using the skill via the bc-integration plugin, there is a series of quality of life setup steps that help template and spin up project workspaces rapidly. See the README.md file for the plugin for more details, or ask your AI agent for help. 
@@ -156,10 +126,14 @@ BOOMI_TARGET_FOLDER=your_default_folder_guid
 BOOMI_ENVIRONMENT_ID=your_environment_id
 BOOMI_TEST_ATOM_ID=your_test_atom_id
 
-# Shared Web Server Runtime Credentials (lets the agent test listeners - optional)
+# Shared Web Server Credentials
+# SERVER_AUTH_TYPE: basic | bearer | none.
+# See references/platform_entities/shared_web_server.md for runtime-by-runtime guidance.
 SERVER_BASE_URL=https://your-atom.integrate.boomi.com
+SERVER_AUTH_TYPE=basic
 SERVER_USERNAME=your_runtime_username
 SERVER_TOKEN=your_runtime_token
+SERVER_BEARER_TOKEN=
 SERVER_VERIFY_SSL=false
 ```
 
@@ -205,7 +179,7 @@ Agent: [Deploys process to runtime]
 
 The skill makes the following CLI tools available to the agent:
 
-- `boomi-env-check.sh` - Checks which .env variables are set without revealing values
+- `boomi-env-check.sh` - Checks which .env variables are set without revealing values, and which required CLI tools are installed
 - `boomi-folder-create.sh` - Creates project folders
 - `boomi-component-create.sh` - Creates new components
 - `boomi-component-push.sh` - Updates existing components
@@ -217,30 +191,23 @@ The skill makes the following CLI tools available to the agent:
 - `boomi-profile-inspect.py` - Extracts field metadata from large profiles (Python stdlib)
 - `event-streams-setup.sh` - Configures Event Streams
 
-## Canvas Arranger
+## Canvas arranger (fork addition)
 
-This fork includes a standalone canvas arranger (`scripts/boomi-canvas-arrange.py`) — a portable Python script that replaces the original Claude Code agent. It works with any agent runtime.
-
-### What It Does
-
-- **Validates** step-path integrity: orphaned shapes, broken connections, unset `toShape` attributes, missing targets
-- **Arranges** shape layout for clean visual presentation in the Boomi GUI: left-to-right flow, vertical branch spacing, merge point positioning
-
-### Usage
+The standalone `scripts/boomi-canvas-arrange.py` validates process paths and
+lays out process shapes without depending on a specific agent runtime.
 
 ```bash
-python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml           # Full run
-python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml --dry-run  # Preview only
-python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml --no-layout # Integrity check only
+python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml
+python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml --dry-run
+python3 <skill-path>/scripts/boomi-canvas-arrange.py process.xml --no-layout
 ```
 
-**Exit codes:** `0` = clean, `1` = issues found, `2` = error.
+- Exit `0`: clean
+- Exit `1`: integrity issues found
+- Exit `2`: input or processing error
 
-**Layout rules:** 192px horizontal spacing, 160px between branches, 112px sub-branch offset. Merge points positioned toward shorter branches. Orphans placed below main flow.
-
-### Pitfall
-
-Python's `xml.etree.ElementTree` strips XML comments (`<!-- -->`). The arranger will drop any comments in your process XML. Boomi doesn't depend on comments — this is cosmetic only.
+The script uses Python's `xml.etree.ElementTree`, which does not preserve XML
+comments and may normalize cosmetic XML formatting.
 
 ## Documentation Structure
 
@@ -265,61 +232,19 @@ The skill includes the following Boomi-centric reference documentation:
   - Process Call, Return Documents
   - Event Streams, Salesforce
 
-## Roadmap / Future Ideas
-
-Ideas for extending this fork. Contributions and private forks welcome.
-
-### Integration-Specific Patterns
-- Pre-built reference docs for common integration domains (identity management, ERP, CRM, finance)
-- Domain-specific connector templates — field mappings, error handling, retry logic tailored to specific systems
-- Gotcha guides — the things that catch you out on specific connectors that aren't in the official docs
-
-### Testing Skill
-- Automated test suite for core integrations — validate field mappings, check edge cases, verify error handling
-- Execution result analysis — parse process logs and flag anomalies
-- Regression testing patterns — snapshot known-good outputs, diff against new runs
-
-### Reusable Component Library
-- Pre-built connection configs for common systems (with credential patterns)
-- Profile templates for standard data formats used across projects
-- Process skeletons — boilerplate for common patterns (poll → transform → push, API gateway, error handler)
-- Map templates for frequent transformations
-
-### Environment Knowledge
-- Per-team configuration: runtime IDs, folder structures, naming conventions, deployment targets
-- Company-specific patterns: security requirements, approval workflows, change management
-- Private fork support: `.env.example` tuned for your org, internal documentation references
-
-### Advanced Agent Features
-- Boomi code review agent — validate process XML quality, flag anti-patterns, check naming conventions
-- Lightweight integration planning — checklist-based pre-build analysis for complex multi-system integrations
-- Deployment pipeline integration — CI/CD hooks for automated push, deploy, test cycles
-
----
-
 ## Support and Issues
 
-This skill is designed to be agent-agnostic, with OpenCode as the recommended runtime. Agent Skills are an open standard accessible to multiple models and platforms.
+This fork is agent-agnostic and recommends OpenCode. The upstream skill was
+designed originally for Claude Code, while Agent Skills are an open standard
+accessible to other models and platforms.
 
-### OpenCode Troubleshooting
+More info about agent skills can be found here: https://agentskills.io/home
+and here: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
 
-| Problem | Fix |
-|---------|-----|
-| OpenCode can't find skill scripts | Ensure fork is cloned at `~/workspace/boomi-integration/`. Check `opencode --version`. |
-| Auth errors on Boomi API | Run `bash <skill-path>/scripts/boomi-env-check.sh` to verify credentials are set. |
-| Model not found | Check `opencode auth list` — ensure provider is configured. Use `openrouter/` prefix for OpenRouter models. |
-| SSL handshake failures (exit 35) | Check Zscaler or corporate VPN. |
-| Canvas arranger drops XML comments | Expected — `xml.etree.ElementTree` strips comments. Boomi doesn't depend on them. |
+If you encounter issues:
 
-### Upstream Boomi Skill Resources
+1. This course provides an excellent intro to Claude Code: https://anthropic.skilljar.com/claude-code-in-action
+2. We would love your feedback and input via developer-offerings@boomi.com
+3. Your AI agent can often help troubleshoot and explain issues
 
-- Agent Skills overview: https://agentskills.io/home
-- Claude Code skill docs: https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview
-- Claude Code intro course: https://anthropic.skilljar.com/claude-code-in-action
-- Official feedback: solutions@boomi.com
-
-### OpenCode Resources
-
-- Docs: https://opencode.ai/docs
-- GitHub: https://github.com/anomalyco/opencode
-- Config reference: https://opencode.ai/config.json
+For fork-specific behavior and upstream-sync guidance, see [`FORK.md`](FORK.md).

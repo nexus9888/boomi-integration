@@ -2,7 +2,7 @@
 
 This is a Boomi-oriented workspace. Load and use the `boomi-integration` skill for all Boomi tasks. OpenCode will auto-load `OPENCODE.md` and `AGENTS.md` from this directory — they contain the skill invocation instructions.
 
-The skill contains `.sh` CLI tools for all common tasks. Always look for these tools as a first option. The path to run them is `<skill-base-path>/scripts/*`.
+The skill contains `.sh` CLI tools for all common tasks. Always look for these tools as a first option. The path to run them is `<skill-path>/scripts/*`.
 
 If you find yourself needing to craft custom `curl` — stop and discuss with the user before proceeding. This is unexpected.
 
@@ -16,7 +16,8 @@ If available, `boomi-marketplace` skill allows you to query from a library of as
 
 ## Credentials & .env Files
 
-You will not be able to read `.env` files directly — access is blocked by project settings by default. The CLI tools load credentials internally via `source .env` in bash. Variables expand inside the bash subprocess; you never see the resolved values.
+Do not read or print `.env`. The skill's CLI tools load it internally and apply
+the credential-handling guardrails documented by the skill.
 
 Checking credentials:
 ```bash
@@ -44,7 +45,7 @@ If curl returns exit code 35 (SSL handshake failure), alert the user to check Zs
 After building or modifying a Boomi process, run the canvas arranger:
 
 ```bash
-python3 <skill-base-path>/scripts/boomi-canvas-arrange.py active-development/processes/<process-name>.xml
+python3 <skill-path>/scripts/boomi-canvas-arrange.py active-development/process/<process-name>.xml
 ```
 
 This validates step paths and organizes shape layout. Run it automatically after every process build or modification.

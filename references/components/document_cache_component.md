@@ -45,7 +45,7 @@ The Document Cache component (`type="documentcache"`) defines the structure for 
 
 | Attribute | Required | Description |
 |-----------|----------|-------------|
-| `profileType` | Yes | **Must always be set.** Values: `profile.json`, `profile.xml`, `profile.flatfile`, `profile.database`, `profile.edi`, `profile.none`. Omitting this attribute entirely causes a runtime crash (`DataParserException: component null does not exist`). Use `profile.none` for format-agnostic caching (accepts any document format). |
+| `profileType` | Yes | **Must always be set.** Values: `profile.json`, `profile.xml`, `profile.flatfile`, `profile.db`, `profile.edi`, `profile.none`. Omitting this attribute entirely causes a runtime crash (`DataParserException: component null does not exist`). Use `profile.none` for format-agnostic caching (accepts any document format). |
 | `profile` | When not `profile.none` | GUID of the profile component. Required for all profile types except `profile.none`. With `profile.none`, omit this attribute — no profile component is needed. |
 | `enforceSingleLucene` | No | When `true` (GUI default), each document produces at most one index entry. Enables "retrieve all documents" and "remove by index name" operations. XSD default is `false` but platform GUI defaults to `true`. |
 
@@ -69,14 +69,14 @@ Keys use `xsi:type` for polymorphism. Three types:
 | `elementKey` | Profile element ID |
 | `keyType` | Optional. `"profile"` for ProfileElementKeyConfig. Platform may omit — `xsi:type` already carries the type. |
 | `name` | Element name. Format varies — may be short (`"id"`) or include full path (`"Id (Record/Elements/Id)"`) |
-| `taglistKey` | Taglist element ID. `-1` or `0` when not in a taglist. Positive integer when referencing a taglist. |
+| `taglistKey` | Taglist element ID. Use `0` when not in a taglist — `-1` is accepted on push but **silently breaks indexing** (Add to Cache reports success, the cache stays empty). Positive integer when referencing a taglist. |
 
 **DocumentPropertyKeyConfig** (`keyType="docprop"`) — maps to a document property:
 | Attribute | Description |
 |-----------|-------------|
 | `id` | Platform-assigned integer key identifier |
 | `alias` | Display alias |
-| `propertyId` | Document/dynamic document/MIME property ID |
+| `propertyId` | Document/dynamic document/MIME property ID. Accepts any property namespace — `dynamicdocument.<name>`, `meta.base.<prop>`, `mime.<header>`, or connector-namespace properties like `connector.mailsdk.messageId` (useful for keying attachment caches off auto-tracked connector properties). |
 | `propertyName` | Property display name |
 | `defaultValue` | Default if property missing |
 
@@ -93,6 +93,7 @@ Keys use `xsi:type` for polymorphism. Three types:
   - **XML**: Mismatch causes runtime error (`Unable to create XML files from data, the document may not be well-formed xml`)
   - **Flat File**: No format validation — the parser treats any text as delimited data. Mismatched documents are silently accepted but produce 0 records (nothing is cached, no error raised)
   - **EDI**: No format validation — same silent-acceptance pattern as flat file. Non-EDI documents produce 0 records with no error.
+  - **Database (Legacy)** (`profile.db`): No format validation — same silent-acceptance pattern as flat file/EDI. The cached document is the Database (Legacy) connector's delimited read envelope (`DBSTART|…|DBEND`), not XML/JSON. A non-conforming document produces 0 records with no error.
   - **None** (`profile.none`): No format validation — any document format is accepted and cached.
 
 ## Map Lookup Constraints
@@ -131,6 +132,17 @@ Neither approach iterates over repeating elements within a single cached documen
   </CacheIndex>
 </DocumentCache>
 ```
+
+### Database (Legacy) Profile with Profile Element Key
+```xml
+<DocumentCache enforceSingleLucene="true" profile="d85c6ccc-87f2-4013-ae71-c4d065a5e8f1" profileType="profile.db">
+  <CacheIndex indexId="1" indexName="BusinessEntityID">
+    <cacheKey alias="BusinessEntityID" elementKey="6" id="2" name="BusinessEntityID" taglistKey="0" xsi:type="ProfileElementKeyConfig"/>
+  </CacheIndex>
+</DocumentCache>
+```
+
+`profile` references a Database Profile component, and `elementKey` references one of that profile's `result_set` output columns (`DatabaseElement key`). A single Database Profile can serve both the connector read and the cache — the cache keys off a read output column value (here `BusinessEntityID`). The cached document is the connector's delimited read envelope; cache keying and retrieval by that column value work as with any profile element key.
 
 ### No Profile (profile.none) with Document Property Key
 ```xml

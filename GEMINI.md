@@ -4,6 +4,9 @@ This file is kept for legacy compatibility with Gemini CLI. OpenCode is now the 
 
 See `OPENCODE.md` for the current primary instruction file.
 
+Legacy users must also follow the credential-handling rules in `AGENTS.md`:
+never read, print, export, trace, or place `.env` values on a command line.
+
 ---
 
 # boomi-integration Skill

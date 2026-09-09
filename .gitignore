@@ -4,5 +4,6 @@ hook-logs/
 CLAUDE.local.md
 .env
 .env.*
+!template/.env.example
 .DS_Store
 __pycache__/

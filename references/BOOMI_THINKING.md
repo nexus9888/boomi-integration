@@ -3,7 +3,6 @@ This guide covers Boomi's core mental models and development philosophy.
 
 ## Contents
 - Core Mental Models
-- Profile Type Selection: Flat File vs EDI Profile
 - Dependency-Aware Development
 - Properties as Variables
 - Document Tracking (Account-Level)
@@ -16,6 +15,7 @@ This guide covers Boomi's core mental models and development philosophy.
 - Naming Conventions
 - Development Workflow Principles
 - Critical Deployment Pattern
+- Profile Type Selection: Flat File vs EDI Profile
 - EDI Profile Design Mental Models (X12 and EDIFACT)
 - Platform Services Awareness
 
@@ -39,22 +39,6 @@ This guide covers Boomi's core mental models and development philosophy.
 - Flat File profiles for CSVs and less-structured data
 - EDI profiles for EDI documents and hierarchical record formats
 - It is often beneficial to build a connector, execute it, view the process log, and create a profile based on the response. Alternatively you can often call the API yourself while designing, to see the output
-
-### 4. Profile Type Selection: Flat File vs EDI Profile
-**CRITICAL DECISION POINT** - Make this choice first, before building profiles for fixed-width or multi-record formats.
-
-| Output Need | Profile Type |
-|-------------|--------------|
-| Independent rows (CSV, Excel-like tabular data) | `profile.flatfile` |
-| Hierarchical parent-child relationships | `profile.edi` with `standard="userdef"` |
-
-Flat file profiles cannot express that record B belongs to record A - they produce all records as independent rows. Only EDI profiles with nested `EdiLoop` structures can produce hierarchical output where child records appear immediately after their parent.
-
-**Use EDI Profile (userdef) when:**
-- Child records must follow their parent records in output
-- Nested repeating groups (e.g., shipment → references, location → references)
-- Complex proprietary formats (TMW, mainframe formats)
-- Any format requiring hierarchical record relationships
 
 ## Dependency-Aware Development
 Components reference other components. Think in dependency chains:
@@ -83,6 +67,7 @@ A use is in B2B/EDI Trading Partner components, where tracked fields extract val
 Profile fields with `dataType="datetime"` used in a map component, trigger Boomi's internal datetime processing. The `dateFormat` attribute controls representation external to the map only - within the map, Boomi always uses `yyyyMMdd HHmmss.SSS`.
 
 **Mapping behavior by field type:**
+
 | Source | Target | Behavior |
 |--------|--------|----------|
 | character | character | Pass-through (full control) |
@@ -139,7 +124,7 @@ When uncertain, default to technology connectors (REST, Database) over branded o
 - **Technology Connectors (REST, Database, Event Streams)**: Fully programmatic - connections, operations, all configuration via XML
 - **Branded Connectors (Salesforce, NetSuite, Boomi for SAP)**: Require GUI configurations by the user for OAuth flows, metadata import, live discovery, or Core module setup. Reference existing components by ID, or use placeholder pattern when components don't exist yet, or create net new functionality as technology connectors.
 - **MCP Server Connector**: Listener-based connector that exposes Boomi processes as AI-callable tools via Model Context Protocol. Uses Connection (server identity + auth) + Operation (tool definition with JSON schema) + Start Step (listener entry point). Unlike request-based connectors, MCP processes are always listener processes that wait for AI agent invocations. Technology Preview - not production-ready.
-- **Agent Connector** (`connectorType="boomiai"`): Integrates AI agents from Agent Control Tower into processes. Connection + Operation require one-time GUI setup (Component API does not support creating these), but once created they are reusable across any number of programmatically-built processes by ID. Requires a Message step before it to construct the prompt. Output is an SSE event stream; downstream parsing needed to extract the agent's text response.
+- **Agent Connector** (`connectorType="boomiai"`): Integrates AI agents from Agent Control Tower into processes. Connection + Operation are GUI-only and read-only to the Component API — neither can be created nor updated programmatically — but once they exist they are reusable across any number of programmatically-built processes by ID. Any upstream shape that produces a document supplies the prompt; a Message step is common but not required. Output shape follows the agent's response mode: conversational returns an SSE event stream needing downstream parsing, structured returns a single JSON envelope.
 
 **Connection Discovery (recommended before building):**
 
@@ -151,6 +136,7 @@ Re-using existing connections avoids credential exposure in the context window. 
 4. After resolving, offer to add newly discovered connections to `preferred_connections.md`
 
 **Credential philosophy:**
+
 - **Prefer pulling from platform**: Credentials configured in the Boomi GUI come down pre-encrypted — this keeps secrets out of the conversation entirely
 - **User-provided credentials are OK**: If a user shares a credential directly, use it. If it appears to be a production secret, remind them of the pull-from-platform option — but respect their choice
 - **Avoid reciting credentials** in plans, summaries, or overviews — they could be visible during screen sharing. The user can always ask you to surface them if needed
@@ -173,12 +159,23 @@ REST CONNECTOR:
 
 **Why this matters**: HTTP Client and REST bind dynamic values through different mechanisms. HTTP Client uses `isVariable="true"` on headers and path elements (the GUI "replacement variable" feature), resolved from DDPs of matching name set upstream. REST requires the process step's `<dynamicProperties>` element. Patterns do not port between them.
 
-**Critical Silent Failure - Profile Type Attributes:**
-- NEVER use `requestProfileType` or `responseProfileType` attributes in REST connector operations
-- They don't exist in GUI and cause silent document flow failures
-- Connector reports success, process shows documents flowing, but content is lost/corrupted
-- No design-time validation
-- REST connectors return raw responses - use Map/Set Properties steps for structured parsing
+**REST request & response profiles:**
+
+- REST Client operations support selectable `requestProfile`/`responseProfile` (with `requestProfileType`/`responseProfileType` = `json`|`xml`). The request profile enables parameter injection and Connector-Call input binding; the **response profile is informational only** and does not reshape output.
+- A plain REST step still emits the **raw** response regardless of the response profile — use a downstream Map/Set Properties step for structured parsing. The profile-type attributes are inert when no profile is linked.
+
+### Email Connector Specifics
+**CRITICAL**: Two email connectors exist. Prefer Mail (IMAP) (`connectorType="mailsdk"`) for new work; for editing existing `connectorType="mail"` components, see `components/mail_component.md`. Boomi no longer actively maintains the older Mail connector.
+
+**Why this matters**: patterns do not port. Mail (IMAP) carries SMTP and IMAP on a *single* connection; Mail carries one host/port pair, so send and get need *separate* connections. Mail has no step parameter surface — per-document values come only from `connector.mail.*` document properties.
+
+### OpenAPI Connector Specifics
+A separate, spec-driven connector (`connectorType="officialboomi-X3979C-opena2-prod"`) for OpenAPI 3.0+ APIs; operations can be hand-authored and pushed via API, with the GUI import wizard as a design-time convenience.
+
+Like REST (above), OpenAPI operations use `requestProfileType`/`responseProfileType`. (Parameters differ, though — defined in cookie metadata, not `customproperties` slots.) See `components/openapi_connector_operation_component.md` and `components/openapi_connection_component.md`.
+
+### Disk Connector Specifics
+**Default every directory value to `work/{purpose}`** (e.g. `work/output`) — both the connection's `directory` field and the `connector.disk-sdk.directory` document property, which is restricted the same way. On cloud runtimes writes are permitted under `work` and its subdirectories; a path outside it fails on execution, not at design time. See `components/diskv2_connection_component.md`.
 
 ## Step Design Principles
 ### Message Steps
@@ -190,7 +187,8 @@ Template engines for generating document content from scratch or with variable s
 Transform structured data between profiles. Restructure organization while converting types and applying transformations.
 
 **Transformation Decision Tree**:
-- **Use Maps**: For transforming existing structured data from one profile to another (bias toward maps - elegant for humans)
+
+- **Use Maps**: For transforming existing structured data from one profile to another (_strongly_ bias toward maps - elegant for humans)
 - **Use Message Steps**: For generating new content/payloads from scratch or with templating
 - **Use Data Process Steps**: For specialized scripts/mechanisms not achievable with other two
 
@@ -199,10 +197,13 @@ Extract values from documents and store as DDPs/DPPs for downstream use. Enable 
 
 ### Event Streams Architecture
 **Listen vs Consume - Fundamental Architectural Choice:**
+
 - **Listen**: Event-driven, continuous processing, Start step only → Use for real-time event processing (a more common use of event streams)
 - **Consume**: On-demand pull, scheduled/batch, Start or mid-process → Use for controlled batch operations
 
 This choice affects entire process architecture - Listen processes will be triggered in real time by a mechanism external to the process, Consume processes will run on schedule or manually by a user.
+
+**Dead-Letter Queues:** Each subscription has its own DLQ. Messages are dead-lettered only when the consuming operation is configured for it — `subscriptionType="Shared"` + `transacted="true"` (Listen) + a `maxRetries` ceiling — at which point a repeatedly-failing message is redelivered until `maxRetries` is exceeded, then moved to the DLQ. There is no GUI/API toggle to enable a DLQ and no reprocessing API; reprocess with a `consumeFromDeadLetter="true"` Consume operation (inspect → produce back to the original topic), capping attempts via a payload counter to avoid poison-message loops. See `platform_entities/event_streams.md`.
 
 ### Data Process Steps
 The "Swiss army knife" for document manipulation when Maps or Message steps aren't sufficient. Supports sequential processing actions where each operation's output feeds the next.
@@ -210,15 +211,16 @@ The "Swiss army knife" for document manipulation when Maps or Message steps aren
 **Groovy Scripting — Last Resort Only** (Design-Critical):
 A core Boomi value proposition is that integrations are manageable by humans through the platform UI. Native components (Maps, Decisions, Set Properties, Message steps) are visible, configurable, and debuggable in the GUI. Scripts are opaque black boxes that only the author can maintain. **Always use native Boomi components first, even when scripting would be faster to write.** The extra build effort pays for itself in maintainability.
 
-Scripting is only appropriate when native components genuinely cannot accomplish the task. Before writing any Groovy, exhaust these alternatives:
-1. Can Map step handle this transformation? → Use Map
+Scripting is only appropriate when native components genuinely cannot accomplish the task. Before writing any scripting, exhaust these alternatives:
+1. Can Map step handle this transformation? → Use Map (multi-step field logic included — a User-Defined Function chains standard map functions natively)
 2. Can Message step generate this content? → Use Message
-3. Can Decision/Route/Branch handle this routing? → Use Decision/Route/Branch
+3. Can Decision/Route/Branch handle this routing? → Use Decision/Route/Branch (for multi-condition validation, a Business Rules step holds many named rules in one shape and reports which failed)
 4. Can Set Properties + concatenation solve this? → Use Set Properties
 5. Can a subprocess with native components accomplish this? → Use subprocess
 6. **None of the above work?** → Groovy, kept under 50 lines
 
 **CRITICAL Groovy Scripting Rules (when scripting is unavoidable):**
+
 - MUST call `dataContext.storeStream()` or documents disappear silently
 - Keep scripts minimal (<50 lines) — if longer, break into native components
 - Prefer Map steps for structured transformations, even complex ones
@@ -228,19 +230,32 @@ Scripting is only appropriate when native components genuinely cannot accomplish
 Branches execute sequentially (not simultaneously) - each branch gets a copy of the input document and completes fully before the next branch begins.
 
 **Property behavior across branches:**
+
 - **DDPs set before branch**: Carry down all branch paths
 - **DDPs set within branch**: Only follow that specific branch path
 - **DPPs set in earlier branches**: Persist and are accessible in subsequent branches
+
+### Flow Control Steps
+The Flow Control step controls how documents passing through it are dispatched downstream: one at a time, in batches, or in parallel across multiple threads or runtime processes. It does not transform documents or affect routing — it changes the *cadence* and *concurrency* of the path immediately after it. Be careful not to overuse the flow control steps as they affect the performance and memory utilization of the basic runtime/process.
 
 ### Process Call Steps
 Enables modular design by routing documents into subprocesses. All subprocess branches complete and return their documents simultaneously to the parent process - this is a key architectural behavior that enables cross-branch document combination that would be impossible within a single process.
 
 **Key architectural use cases:**
+
 - **Test Mode Enablement**: Listener start shapes disable test mode - wrap the core business logic in a subprocess to maintain testability
 - **Cross-Branch Document Combination**: Documents from separate subprocess branches return together, enabling combination operations
 - **Modularization**: Break complex processes into reusable, maintainable components
 
 **Critical design requirement:** Subprocess MUST use passthrough start configuration to receive parent documents.
+
+### Process Route Steps
+Calls a separate Process Route component that dynamically selects which subprocess to run from a route key resolved at execution time. **Default to a plain Process Call** for ordinary modular/shared logic — reach for a Process Route only when you genuinely need the dynamic, independently-deployable indirection, because it costs portability and deployment simplicity:
+- **Not a dependent component.** The parent, the Process Route component, and **every** subprocess must each be deployed independently — deploying the parent bundles neither. (Contrast Process Call, where subprocesses ride along with the parent.)
+- **Reference prefix is mandatory and silently fails.** The step references the component as `processRouteId="resource::rout:<guid>"`; a bare GUID is accepted on push and deploy but fails only at execution.
+- **Distribution-limited and edition-gated.** Cannot be shared via process library, integration pack, or Bundle; Professional/Enterprise only.
+
+See `steps/process_route_step.md` and `components/process_route_component.md`.
 
 ### Try-Catch Steps
 Error handling with dual paths: Try for normal processing, Catch for errors. Place directly after Start step for process-wide error handling, or wrap specific operations that may fail.
@@ -256,6 +271,19 @@ The `<dragpoints>` element is **required** on every shape — omitting it causes
 
 Multi-path shapes (TP Send, Decision, Try/Catch, Branch) support partial wiring at the API level — some paths wired, others with `toShape="unset"`. However, always wire all paths to a downstream step (even if just a Stop step) as a best practice.
 
+**Dragpoint `x`/`y` are cosmetic.** They survive an API round trip exactly as authored, but they do not control the path a connector line takes, and the GUI regenerates return-path dragpoint coordinates from the target step's position the first time the process is opened and saved there — no human edit required. Do not rely on any dragpoint coordinate as a layout mechanism. Connector lines are routed orthogonally — horizontal and vertical segments only, never diagonal — and each outcome's label is drawn at the **target** end of its line, immediately before the target step. A step's own `x`/`y` is the only geometry worth authoring carefully.
+
+### Converging Outcomes
+**Never wire two outcomes of one step to the same target step.** Both labels anchor at the same point and overprint into an unreadable smear; with unlabeled outcomes the two lines coincide exactly and a reader cannot tell the step has more than one. Execution is unaffected and the wiring is correct — nothing in the XML, logs, or execution record flags it — so this is caught only by looking at the Build canvas.
+
+Applies to any step exposing multiple outcomes, including Process Call return paths and Branch. No arrangement of steps fixes it: both outcomes leave one step and arrive at one step, so both lines follow the same route wherever those two steps sit, and deliberately-differing dragpoint coordinates collapse onto a single value the first time the process is opened and saved in the GUI.
+
+The only remedy is giving each outcome its own target step:
+- **Interpose one inert Notify per outcome** before the shared step (preferred). The shared step is retained, so the process's return contract is unchanged, and documents pass through unaltered, at a small fixed log cost (see `steps/notify_step.md`). Two lines converging on the shared step from *different* steps render cleanly — the defect is specific to two lines leaving *one* step for one target.
+- **Or give each outcome its own terminal step**, when the outcomes should be independently addressable. See `steps/return_documents_step.md` for the return-contract consequence.
+
+A converged step is entered **once per inbound outcome**, not once with the merged set — two outcomes arriving means two separate executions of that step, each with its own documents. Relevant when the shared step is order- or batch-sensitive (e.g. a `combined="true"` Message step).
+
 ### Terminal Steps (Return Documents vs Stop)
 **Return Documents:** Returns documents to calling context (parent process or external caller). In subprocess, creates return branches in parent. In listener, returns API response. Documents retain all properties when returned.
 
@@ -268,6 +296,7 @@ Multi-path shapes (TP Send, Decision, Try/Catch, Branch) support partial wiring 
 The document cache is a way to store documents retrieved during a process so they can be used later. Many use it to correlate different types of data to one another or to pull a value from another document based on the value in the current document. Documents are kept only during the process execution (in memory) and do not carry over into later executions.
 
 **Use a document cache when:**
+
 - Building cross-reference lookups within a process execution (e.g., cache customer records, look up by ID while processing orders)
 - Caching destination system records for existence checks before insert/update — avoids per-record API calls
 - Accumulating documents across processing steps for aggregated retrieval
@@ -282,6 +311,7 @@ See `references/components/document_cache_component.md` and `references/steps/do
 **Why this matters**: Web Services Listeners cannot be tested via platform test tools (require HTTP requests). By isolating business logic in a subprocess with passthrough start, the core logic remains testable within the platform GUI by users, while the wrapper handles HTTP concerns.
 
 **Architecture concept:**
+
 - Thin wrapper: WSS listener → Process Call → Return Documents
 - Thick subprocess: Business logic, transformations, connectors
 - Subprocess can be tested independently, called from multiple wrappers, and developed without HTTP complexity
@@ -294,7 +324,7 @@ See `references/components/document_cache_component.md` and `references/steps/do
 
 **Common anti-pattern**: Creating duplicate profiles for subprocess operations when parent already defines the structure (e.g., "subprocess_request_profile" when WSS wrapper already has request profile with identical structure).
 
-**Benefits**: Fewer components, consistent validation, cleaner architecture, MVP compliance.
+**Benefits**: Fewer components, consistent validation, cleaner architecture.
 
 ### Debugging with Notify Steps
 
@@ -302,16 +332,25 @@ See `references/components/document_cache_component.md` and `references/steps/do
 
 **Why this matters**: Boomi processes are opaque at runtime. Notify steps provide visibility into document content, property values, and execution flow at critical points.
 
-**Essential concept**: Place Notify steps strategically (after Message steps, before/after connector calls, after Set Properties, always on Catch paths) to validate behavior and payloads during development. After or before notable process points, use `valueType="current"` to log the raw document for visibility.
+**Essential concept**: Place Notify steps strategically (after Message steps, before/after connector calls, after Set Properties, always on Catch paths) to validate behavior and payloads during development. After or before notable process points, use `valueType="current"` to log the raw document for visibility. Notify parameters can read DDPs, DPPs, Process Property components, profile elements, execution metadata directly, and more — no need to stage a value into a DDP/DPP just to log it.
 
 ## Critical Silent Failures Awareness
 Key patterns that fail silently without errors:
 - **Quote escaping**: Message/Notify variable substitution failures - MOST COMMON BUG
 - **Connector parameters override document**: Document content ignored
 - **Parent-subprocess deployments**: Updates not reflected until parent redeployed
+- **UDF wiring keys**: Inside a User-Defined Function, a Mapping pointing at a nonexistent port key is accepted on push and executes without error — the wire is silently dropped and the downstream input reads empty (wrong output, no failure). NamePaths are decorative; only keys are checked, and only by you
+- **UDF interface drift**: Changing a User-Defined Function's interface keys breaks consuming maps at execution with a misleading error blaming the *source profile* — see `components/user_defined_function_component.md`
+- **Document cache key `taglistKey="-1"`**: accepted on push, but Add to Cache silently indexes nothing — the cache stays empty. Use `0` outside taglists
+- **Map fan-in to a repeating element**: two mappings from non-repeating source fields to the same repeating target key collapse into one instance, last-write-wins — the earlier value is discarded and execution reports COMPLETE. Use `toTagListKey` to route each mapping to its own instance
+- **Target hierarchy that doesn't mirror the source**: a nested source array mapped to sibling repeating target elements flattens — every value survives, so nothing looks wrong, but the parent-child grouping is gone. Nest the target profile to match the source
+- **Split output shape**: Split Documents keeps the parent wrapper (JSON and XML) — a Set Properties or Route key written for a bare element reads empty, no error
+- **Process Route reference prefix**: A `processRouteId` missing the `resource::rout:` prefix is accepted on push and deploy, failing only at execution
 - **XML schema mistakes**: Common validation errors
 
 ## Naming Conventions
+If the user provides their own naming convention, defer to it — the conventions below are defaults only.
+
 - `DPP_VARIABLE_NAME` for process properties
 - `DDP_VARIABLE_NAME` for document properties
 - Descriptive component names: `Query Salesforce Opportunity by ID`
@@ -324,11 +363,13 @@ Key patterns that fail silently without errors:
 ## Development Workflow Principles
 ### Component Creation vs Update
 **When to CREATE (New Components)**:
+
 - Component doesn't exist on platform yet
 - No sync state file (`.sync-state/{name}.json`) exists
 - Building new integrations from scratch
 
 **When to UPDATE (Existing Components)**:
+
 - Component already exists on platform
 - Sync state file exists with component ID or component can be found via a reference in a parent component
 - XML has populated `componentId` from platform
@@ -337,6 +378,7 @@ Key patterns that fail silently without errors:
 ### Component Dependency Order
 
 **Creation Order (Dependencies First)**:
+
 1. **Profile Components**: JSON, XML, Database schemas
 2. **Connection Components**: Endpoints, authentication, timeouts
 3. **Operation Components**: Specific API calls, references profiles & connections
@@ -351,6 +393,7 @@ Key patterns that fail silently without errors:
 **Anti-pattern**: Creating many components locally before pushing causes "big bang" sync failures and reference resolution issues.
 
 **Design approach**:
+
 1. Identify component dependency chains
 2. Create and push incrementally in dependency order (Profiles → maps → Processes)
 3. Read `.sync-state/` for generated component IDs after each push
@@ -365,7 +408,26 @@ Key patterns that fail silently without errors:
 ## Critical Deployment Pattern
 **Parent-Subprocess Dependency**: When updating subprocesses, ALWAYS redeploy parent processes to pick up changes. This is the most dangerous deployment gotcha - parent processes snapshot subprocess versions at deployment time.
 
+The same snapshot semantics apply to User-Defined Functions: a map's UDF reference is unversioned, and packaging snapshots the then-current UDF revision — after editing a UDF, repackage and redeploy every process whose maps consume it.
+
 **Deployment Efficiency**: Parent deployment automatically includes all referenced components - deploy only the parent to update both parent and subprocess.
+
+## Profile Type Selection: Flat File vs EDI Profile
+Make this choice first, before building profiles for fixed-width or multi-record formats.
+
+| Output Need | Profile Type |
+|-------------|--------------|
+| Independent rows (CSV, Excel-like tabular data) | `profile.flatfile` |
+| Hierarchical parent-child relationships | `profile.edi` with `standard="userdef"` |
+
+Flat file profiles cannot express that record B belongs to record A - they produce all records as independent rows. Only EDI profiles with nested `EdiLoop` structures can produce hierarchical output where child records appear immediately after their parent.
+
+**Use EDI Profile (userdef) when:**
+
+- Child records must follow their parent records in output
+- Nested repeating groups (e.g., shipment → references, location → references)
+- Complex proprietary formats (TMW, mainframe formats)
+- Any format requiring hierarchical record relationships
 
 ## EDI Profile Design Mental Models (X12 and EDIFACT)
 
@@ -384,6 +446,6 @@ Both standards share the same pattern: a segment or loop repeats and a qualifier
 EDIFACT qualifiers often live in composite sub-elements (e.g., `RFF01.1`, `DTM01.1`) rather than standalone elements, and EDIFACT segments use composites pervasively elsewhere too. For that reason EDIFACT work almost always pulls `components/edi_profile_component.md` alongside the partner's companion guide.
 
 ## Platform Services Awareness
-Boomi offers platform services beyond Integration processes (Event Streams, DataHub, Flow, API Management, B2B/EDI, AI agents, MCP Server). These require GUI configuration but integrate with Integration processes.
+Boomi offers platform services beyond Integration processes (Event Streams, Data Hub, Flow, API Management, B2B/EDI, AI agents, MCP Server). These require GUI configuration but integrate with Integration processes.
 
-**When designing solutions**: Consider whether Event Streams (pub/sub), DataHub (master data), Flow (UI/workflows), API Gateway (advanced API management), or MCP Server (exposing processes as AI-callable tools) fit the use case better than pure Integration processes.
+**When designing solutions**: Consider whether Event Streams (pub/sub), Data Hub (master data), Flow (UI/workflows), API Gateway (advanced API management), or MCP Server (exposing processes as AI-callable tools) fit the use case better than pure Integration processes.
