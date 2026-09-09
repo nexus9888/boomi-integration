@@ -6,7 +6,9 @@
 - Regular Processes (Non-Listener)
 - Web Services Server (WSS) Listener Processes
 - WSS Endpoint URL Construction
+- Execution Workflow
 - Testing Workflow Requirements
+- Instrumenting Processes for Testing
 
 #### **Testing Patterns by Process Type**
 - **WSS Listeners**: HTTP calls with inline JSON, review response payload
@@ -76,7 +78,7 @@ Save this pattern - use it EVERY time:
 
 **Remember:** sentence case means first letter uppercase, so `"hello"` becomes `"Hello"`
 
-**CRITICAL: WSS Endpoint URL Construction**
+#### **CRITICAL: WSS Endpoint URL Construction**
 
 The endpoint URL for a Web Services Server listener is built by concatenating the `operationType` and `objectName` attributes from the WSS operation XML.
 
@@ -111,7 +113,7 @@ def build_wss_endpoint(operation_xml):
 
 **Step-by-Step Construction Process (FOLLOW EXACTLY):**
 
-1. **Read the WSS operation XML file** (e.g., `active-development/operations/MyOperation.xml`)
+1. **Read the WSS operation XML file** (e.g., `active-development/connector-action/MyOperation.xml`)
 2. **Find the `<WebServicesServerListenAction>` element**
 3. **Extract `operationType`** attribute value (e.g., `"GET"`)
 4. **Convert operationType to lowercase**
@@ -213,7 +215,7 @@ Example path formats:
 # Step 2: Compute path: /ws/simple/{lowercase(operationType)}{sentenceCase(objectName)}
 
 # Step 3: Deploy
-bash <skill-path>/scripts/boomi-deploy.sh active-development/processes/YourProcess.xml
+bash <skill-path>/scripts/boomi-deploy.sh active-development/process/YourProcess.xml
 
 # Step 4: Wait for runtime propagation
 sleep 12
@@ -230,14 +232,14 @@ bash <skill-path>/scripts/boomi-wss-test.sh --path /ws/simple/createUser --metho
 Every test execution follows this workflow. Log retrieval is not optional — always download and review logs after running a process.
 
 **Regular processes (non-listener):**
-- [ ] Deploy the process: `bash <skill-path>/scripts/boomi-deploy.sh active-development/processes/<process>.xml`
+- [ ] Deploy the process: `bash <skill-path>/scripts/boomi-deploy.sh active-development/process/<process>.xml`
 - [ ] Wait for runtime propagation (~12 seconds)
 - [ ] Execute: `bash <skill-path>/scripts/boomi-test-execute.sh --process-id <guid>`
 - [ ] Download logs: `bash <skill-path>/scripts/boomi-execution-query.sh --execution-id <execution-id> --logs`
 - [ ] Review logs — check Notify step output, errors, and processing flow
 
 **WSS listener processes:**
-- [ ] Deploy the process: `bash <skill-path>/scripts/boomi-deploy.sh active-development/processes/<process>.xml`
+- [ ] Deploy the process: `bash <skill-path>/scripts/boomi-deploy.sh active-development/process/<process>.xml`
 - [ ] If the deploy printed a COLLISION WARNING and this is a NEW process: STOP — change the objectName in the WSS Operation to something unique before proceeding (see boomi_error_reference.md Issue #19)
 - [ ] Wait for runtime propagation (~12 seconds)
 - [ ] Test endpoint: `bash <skill-path>/scripts/boomi-wss-test.sh --path /ws/simple/<path> --method POST --data '...'`
@@ -279,10 +281,22 @@ Add Notify steps to inspect document payloads and property values during develop
 <parametervalue key="1" valueType="current"/>
 ```
 
+**Reading a payload log when several documents are in flight:** with the default `perExecution="false"`, the message is rendered once per document and all renderings are **concatenated into a single log line with nothing inserted between them** — three documents produce one line containing three payloads back to back. The line is not one malformed document; it is N documents run together.
+
+Make the boundaries legible by putting a label **before** the placeholder, since the whole template repeats per document:
+
+```xml
+<notifyMessage>[DOC] {1} </notifyMessage>
+```
+
+`[DOC]` then appears once per payload. A trailing delimiter also repeats but its last occurrence is right-trimmed by the log, and an embedded newline does not work at all — newlines become single spaces in the process log.
+
+Do **not** reach for `perExecution="true"` to collapse the output: a `current`, `track` or `profile` parameter fails the path under it. See `references/steps/notify_step.md` § perExecution Attribute Behavior.
+
 **Iterative development workflow:**
 1. Build a section of process functionality
 2. Add Notify step(s) to log outputs at key points
 3. Follow the execution workflow above (deploy → execute → download logs → review)
 4. Continue to next section
 
-See `references/steps/notify_step.md` for complete XML patterns and parameter types.
+See `references/steps/notify_step.md` for Notify XML patterns and `references/guides/parameter_value_types.md` for parameter types.

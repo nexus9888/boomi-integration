@@ -32,7 +32,7 @@ Outside these two cases, use REST. HTTP Client is never chosen on stylistic or "
 
 ## Connection Structure
 
-Root is `<HttpSettings>`. GUI-authored connections emit all five sub-blocks (`AuthSettings`, `OAuthSettings`, `OAuth2Settings`, `AwsSettings`, `SSLOptions`) with empty attributes on unused blocks — the platform neither requires them on input nor backfills them on pull, so edits may safely omit unused blocks.
+Root is `<HttpSettings>`. All five sub-blocks (`AuthSettings`, `OAuthSettings`, `OAuth2Settings`, `AwsSettings`, `SSLOptions`) are required on every create and update, with empty/default attributes on unused blocks — the API accepts their absence, but the Build UI hard-errors on the component and it cannot be edited, saved, or closed. Unset encrypted attributes (`password`, `consumerSecret`, `tokenSecret`, `clientSecret`) may be omitted.
 
 ```xml
 <HttpSettings xmlns="" authenticationType="NONE|BASIC|PASSWORD_DIGEST|CUSTOM|OAUTH|OAUTH2|AWSV4|NETWORK_AUTHENTICATION"
@@ -121,7 +121,7 @@ Encrypted attributes are tracked in a sibling manifest on the component (`<bns:e
 - `<HttpGetAction>` sends a request with no body; `methodType` can be any value (e.g., an endpoint that expects POST with parameters in the URL and no body uses `<HttpGetAction methodType="POST">`).
 - `<HttpSendAction>` sends a request with a body and carries an additional `returnResponses="true|false"` attribute.
 - `<Archiving>`, `<Tracking>`, `<Caching>` shell elements are always present on the operation.
-- `<element>` entries concatenate literally — the connector does not insert `/` between them. Separators must be included in `name` attributes, typically as trailing slashes on static segments (e.g., `name="pet/"` rather than `name="pet"`).
+- `<element>` entries concatenate literally — the connector does not insert `/` between them. Separators must be included in `name` attributes, typically as trailing slashes on static segments (e.g., `name="pet/"` rather than `name="pet"`). The connector **does** join the connection base URL to the path with a single `/`, so the **first** path element must **not** begin with `/` — a leading slash yields a double slash (`https://host//get…`), which typically returns an HTML 404 and surfaces downstream as `Unable to create JSON files from data … Unexpected character ('<' …)`.
 - Within `<pathElements>`, `?` and `&` are literal characters inside `name` values; there is no separate querystring element. For a multi-param querystring, use `?key=` / `&key=` prefixes in static elements with the value element immediately after each (static `?foo=` + variable `FOO_VAL` + static `&bar=` + variable `BAR_VAL` → `?foo=X&bar=Y`).
 - Variable values substituted into path elements or headers are inserted literally — the connector does not URL-encode them. Callers must pre-encode values containing reserved characters (space, `&`, `=`, `+`, `#`, `?`) upstream via Set Properties or Map functions.
 - `isVariable="true"` on `<header>` or `<element>` marks the value as a replacement variable (GUI label: "Is replacement variable?"), resolved from a DDP of the same name at runtime.

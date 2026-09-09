@@ -1,9 +1,18 @@
 #!/usr/bin/env bash
-# Fetch Shared Web Server info for an atom: apiType, URL, minAuth.
-# Run this before authoring any listener: apiType=basic|intermediate means
-# bare WSS listener; apiType=advanced means API Service Component wrapper.
+# Fetch Shared Web Server info for a runtime (apiType, default-port URL,
+# default-port auth, runtime-wide minAuth floor). Use this for routing decisions
+# (basic|intermediate → bare WSS listener; advanced → API Service Component) and
+# as supplementary info — NOT as the authoritative description of the listener's
+# auth. SharedServerInformation only describes the default port. Multi-port
+# runtimes, and ports configured with cert/custom/gateway/external-provider auth,
+# are not fully represented here. The user's .env declarations
+# (SERVER_AUTH_TYPE, SERVER_BASE_URL, etc.) are the authoritative source.
+#
 # Usage: bash scripts/boomi-shared-server-info.sh [<atom-id>]
 #   Defaults to $BOOMI_TEST_ATOM_ID when <atom-id> is omitted.
+
+# Not safely traceable: every line printed expands a body carrying authToken.
+set +x
 
 source "$(dirname "$0")/boomi-common.sh"
 load_env
@@ -26,9 +35,19 @@ if [[ "$RESPONSE_CODE" != "200" ]]; then
   exit 1
 fi
 
-echo "$RESPONSE_BODY" | jq -r '
+# `auth` is omitted from the response when the default port's auth type falls
+# outside the API's `none|basic` enum (i.e. cert, cert-header, custom, external
+# provider, or gateway). Surface that explicitly so absence isn't read as
+# "couldn't fetch."
+auth_display="$(echo "$RESPONSE_BODY" | jq -r '
+  if .auth then .auth
+  else "(not reported — default port uses cert/custom/gateway/external-provider; ask the user)"
+  end')"
+
+echo "$RESPONSE_BODY" | jq -r --arg auth_display "$auth_display" '
   "atomId:  " + (.atomId // "-"),
   "apiType: " + (.apiType // "-"),
-  "url:     " + (.url // "-"),
-  "minAuth: " + (.minAuth // "-")
+  "url:     " + (.url // "-") + "    (default port; other ports may exist with different auth)",
+  "auth:    " + $auth_display,
+  "minAuth: " + (.minAuth // "-") + "    (floor across all ports)"
 '

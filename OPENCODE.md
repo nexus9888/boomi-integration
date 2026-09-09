@@ -4,7 +4,7 @@ This is a Boomi-oriented workspace. Load and use the `boomi-integration` skill f
 
 ## Getting Started
 
-The skill contains `.sh` CLI tools for all common tasks. Always look for these tools as a first option. The path to run them is `<skill-base-path>/scripts/*`.
+The skill contains `.sh` CLI tools for all common tasks. Always look for these tools as a first option. The path to run them is `<skill-path>/scripts/*`.
 
 If you find yourself needing to craft custom `curl` — stop and discuss with the user before proceeding. This is unexpected.
 
@@ -20,9 +20,18 @@ If available, `boomi-marketplace` skill allows you to query from a library of as
 
 ## Credentials & .env Files
 
-You will not be able to read `.env` files directly — access is blocked by project settings by default. The CLI tools load credentials internally via `source .env` in bash. Variables expand inside the bash subprocess; you never see the resolved values, even in transcript history.
+Do not read or print `.env`. The CLI tools load it internally. When editing any
+script, preserve the upstream credential-handling guardrails in `CLAUDE.md`:
+credentials must not reach command arguments, exported environments, response
+logging, or shell traces.
 
-Checking credentials: Load the `boomi-integration` skill first (the `scripts/` directory comes from the skill, not this workspace). Run `bash scripts/boomi-env-check.sh` to see which variables are SET vs UNSET. Run `bash scripts/boomi-folder-create.sh --test-connection` to verify platform connectivity. If credentials are missing, guide the user through the credential setup steps (see `scripts/boomi-env-check.sh` output for what's needed).
+Checking credentials: resolve `<skill-path>` from the loaded
+`boomi-integration/SKILL.md`, then run
+`bash <skill-path>/scripts/boomi-env-check.sh` to see which variables are
+SET vs UNSET. Run
+`bash <skill-path>/scripts/boomi-folder-create.sh --test-connection` to
+verify platform connectivity. If credentials are missing, use
+`references/guides/user_onboarding_guide.md`.
 
 **Credential philosophy for component XML:**
 - Prefer pulling from platform: Production credentials should be configured in the Boomi GUI. Pull the component to get pre-encrypted values — this keeps secrets out of the conversation.
@@ -44,7 +53,7 @@ If curl returns exit code 35 (SSL handshake failure), alert the user to check Zs
 After building or modifying a Boomi process, run the canvas arranger script to validate step-path integrity and organize the layout:
 
 ```bash
-python3 <skill-base-path>/scripts/boomi-canvas-arrange.py <path-to-process-xml>
+python3 <skill-path>/scripts/boomi-canvas-arrange.py <path-to-process-xml>
 ```
 
 This checks for broken connections, orphaned shapes, and repositions shapes for a clean visual layout in the Boomi GUI. Run it automatically after every process build or modification — don't wait to be asked.
@@ -68,9 +77,9 @@ Use `opencode run` for bounded tasks:
 ```bash
 opencode run 'Build a REST listener to Database insert process.
 Read SKILL.md and references/components/process_component.md.
-Create process.xml in active-development/processes/.
-Run canvas arranger after. Push to platform.'
---model openrouter/anthropic/claude-sonnet-4-20250514
+Create process.xml in active-development/process/.
+Run canvas arranger after. Push to platform.' \
+  --model openrouter/anthropic/claude-sonnet-4-20250514
 ```
 
 Attach specific reference files with `-f` when you only need a subset:

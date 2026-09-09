@@ -17,12 +17,12 @@ Boomi's architecture is highly consistent. Most "unknown" things are variations 
 
 - **Unknown connector**: All connectors share Connection + Operation + Step architecture (see BOOMI_THINKING.md), but connector-specific configuration varies significantly. Ask the user to point you to a working example on the platform — pulling it is the fastest path.
 - **Unknown step type**: All steps follow the same process XML shape structure (see `process_component.md`), but configuration elements differ per step type. Ask the user to point you to a process that uses the step so you can pull and study the XML.
-- **Unfamiliar API response**: Read the response body, not just the status code. Common codes: 400 = malformed XML, 403 = pushing identical content (platform deduplication), 409 = version conflict (re-pull), 404 = wrong component ID.
+- **Unfamiliar API response**: Read the response body, not just the status code. Common codes: 400 = malformed XML, 403 = insufficient privileges (read-only token, missing permission, or locked component), 409 = version conflict (re-pull), 404 = wrong component ID.
 - **Unexpected runtime behavior**: Apply the Notify step debugging pattern from `boomi_patterns.md`. Isolate by testing the subprocess alone with hardcoded input via Message step.
 
 ## Tier 3: Consult External Sources
 
-Offer to fetch from `developer.boomi.com` or `help.boomi.com` for connector guides, API schemas, or release notes. User-provided documentation, examples, or screenshots take priority over web sources.
+Offer to fetch from `developer.boomi.com` or `help.boomi.com` for connector guides, API schemas, or release notes, following the fetch mechanics in SKILL.md's External Documentation Strategy — start at the `llms.txt` index rather than guessing paths. User-provided documentation, examples, or screenshots take priority over web sources.
 
 ## Tier 4: Structured Experimentation
 

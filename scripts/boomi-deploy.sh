@@ -3,6 +3,34 @@
 # Usage: bash scripts/boomi-deploy.sh <file_path> [--deployment-notes NOTES] [--list-environments]
 
 source "$(dirname "$0")/boomi-common.sh"
+
+usage() {
+  cat <<'USAGE'
+Usage: bash scripts/boomi-deploy.sh <file_path> [options]
+
+Packages a process and deploys it to a runtime environment (package, then deploy
+by packageId).
+
+Arguments:
+  file_path                  Local component XML
+
+Options:
+  --deployment-notes <text>  Notes recorded on the deployment
+  --list-environments        List environments and exit
+
+Branch: taken from the XML's branchId, then sync state. Neither present sends no
+branch identifier, which resolves to the account default branch. Deploying from a
+branch needs no merge to main.
+
+Side effects: writes to the platform. The deploy REPLACES any existing deployment
+of this process in the target environment, on every branch including main.
+USAGE
+}
+
+# Answer --help and a bare invocation before load_env, which needs a workspace .env.
+[[ $# -eq 0 ]] && { usage >&2; exit 1; }
+if wants_help "--deployment-notes" "$@"; then usage; exit 0; fi
+
 load_env
 require_env BOOMI_API_URL BOOMI_USERNAME BOOMI_API_TOKEN BOOMI_ACCOUNT_ID
 require_tools curl jq
@@ -16,6 +44,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --deployment-notes)  DEPLOY_NOTES="$2"; shift 2 ;;
     --list-environments) LIST_ENVS=true; shift ;;
+    -h|--help)           usage; exit 0 ;;
     -*)                  echo "Unknown option: $1" >&2; exit 1 ;;
     *)                   FILE_PATH="$1"; shift ;;
   esac
@@ -23,14 +52,18 @@ done
 
 # --- List environments ---
 if $LIST_ENVS; then
-  url="$(build_api_url "Environment")"
+  url="$(build_api_url "Environment/query" false)"
   echo "Listing environments..."
 
-  boomi_api -X GET "$url" -H "Accept: application/json"
+  # List all: POST query with empty QueryFilter.
+  boomi_api -X POST "$url" \
+    -H "Accept: application/json" \
+    -H "Content-Type: application/json" \
+    -d '{"QueryFilter":{}}'
 
   if [[ "$RESPONSE_CODE" != "200" ]]; then
     echo "ERROR: Failed to list environments (HTTP ${RESPONSE_CODE})" >&2
-    exit 0
+    exit 1
   fi
 
   echo "$RESPONSE_BODY" | jq -r '.result[]? | "Environment: \(.name) (ID: \(.id))"'
@@ -38,7 +71,7 @@ if $LIST_ENVS; then
 fi
 
 if [[ -z "$FILE_PATH" ]]; then
-  echo "Usage: bash scripts/boomi-deploy.sh <file_path> [--deployment-notes NOTES]" >&2
+  usage >&2
   exit 1
 fi
 
@@ -69,7 +102,7 @@ if [[ -z "$env_id" ]]; then
   exit 1
 fi
 
-# --- Detect branch and warn ---
+# --- Detect branch ---
 xml_branch=$(detect_xml_branch "$FILE_PATH")
 sync_branch=$(read_sync_branch "$FILE_PATH" 2>/dev/null || true)
 effective_branch="${xml_branch:-${sync_branch:-}}"
@@ -79,7 +112,28 @@ effective_branch="${xml_branch:-${sync_branch:-}}"
 wss_op_id=$(grep -o 'connectorType="wss"[^>]*operationId="[^"]*"' "$FILE_PATH" 2>/dev/null \
   | grep -o 'operationId="[^"]*"' | sed 's/operationId="//;s/"//' || true)
 
-if [[ -n "$wss_op_id" && -n "${SERVER_BASE_URL:-}" && -n "${SERVER_USERNAME:-}" && -n "${SERVER_TOKEN:-}" ]]; then
+# Probe a path on the shared web server; echoes the HTTP code, 000 if no response.
+# Trace off across the SERVER_TOKEN expansion.
+probe_wss_path() {
+  local _xtrace_enabled=0
+  case $- in *x*) _xtrace_enabled=1 ;; esac
+  set +x
+
+  local ssl_flag=""
+  [[ "${SERVER_VERIFY_SSL:-true}" == "false" ]] && ssl_flag="-k"
+
+  local code
+  code=$(curl_cfg user "${SERVER_USERNAME}:${SERVER_TOKEN}" \
+    | curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
+      $ssl_flag -A "$BOOMI_USER_AGENT" -X HEAD -K - \
+      "${SERVER_BASE_URL}$1" 2>/dev/null; true)
+  [[ -z "$code" ]] && code="000"
+
+  if (( _xtrace_enabled )); then set -x; fi
+  echo "$code"
+}
+
+if [[ -n "$wss_op_id" ]] && var_is_set SERVER_BASE_URL && var_is_set SERVER_USERNAME && var_is_set SERVER_TOKEN; then
   # Fetch the operation component from the platform to get operationType + objectName
   op_url="$(build_api_url "Component/${wss_op_id}" false)"
   boomi_api -X GET "$op_url" -H "Accept: application/xml"
@@ -92,19 +146,25 @@ if [[ -n "$wss_op_id" && -n "${SERVER_BASE_URL:-}" && -n "${SERVER_USERNAME:-}" 
     sc_obj="$(echo "${obj_name:0:1}" | tr '[:lower:]' '[:upper:]')${obj_name:1}"
     wss_path="/ws/simple/${lc_op}${sc_obj}"
 
-    ssl_flag=""
-    [[ "${SERVER_VERIFY_SSL:-true}" == "false" ]] && ssl_flag="-k"
+    # Baseline probe a known-nonexistent path first: on Boomi-managed clouds,
+    # wrong perimeter creds return 401 for any path including nonexistent ones,
+    # which would make the real probe's response unreadable as a collision signal.
+    baseline_path="/ws/simple/_bcCollisionBaseline_${RANDOM}${RANDOM}"
+    baseline_code=$(probe_wss_path "$baseline_path")
 
-    probe_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
-      $ssl_flag -A "$BOOMI_USER_AGENT" -X HEAD -u "${SERVER_USERNAME}:${SERVER_TOKEN}" \
-      "${SERVER_BASE_URL}${wss_path}" 2>/dev/null; true)
-    [[ -z "$probe_code" ]] && probe_code="000"
+    if [[ "$baseline_code" == "401" ]]; then
+      echo ""
+      echo "Skipping WSS path collision check: baseline HTTP 401 from ${baseline_path} (a known-nonexistent path) indicates SERVER_USERNAME/SERVER_TOKEN are being rejected by the runtime's perimeter — typically stale or wrong cloud-attachment credentials. Verify those credentials and re-run if collision detection is needed."
+      echo ""
+    else
+      probe_code=$(probe_wss_path "$wss_path")
 
-    if [[ "$probe_code" != "404" && "$probe_code" != "000" ]]; then
-      echo ""
-      echo "COLLISION WARNING: ${wss_path} returned HTTP ${probe_code} — a listener is ALREADY on this path. If you have built and are deploying a NEW process, STOP: you MUST change the objectName in your WSS Operation to something unique before deploying (see boomi_error_reference.md Issue #19)."
-      echo "Only proceed past this warning if you are certain that you are deploying a listener process that is already be deployed and active on the platform"
-      echo ""
+      if [[ "$probe_code" != "404" && "$probe_code" != "000" ]]; then
+        echo ""
+        echo "COLLISION WARNING: ${wss_path} returned HTTP ${probe_code} — a listener is ALREADY on this path. If you have built and are deploying a NEW process, STOP: you MUST change the objectName in your WSS Operation to something unique before deploying (see boomi_error_reference.md Issue #19)."
+        echo "Only proceed past this warning if you are certain that you are deploying a listener process that is already be deployed and active on the platform"
+        echo ""
+      fi
     fi
   fi
 fi
@@ -122,16 +182,13 @@ if [[ -n "$effective_branch" ]]; then
     echo "ERROR: Could not resolve branch name for '${effective_branch}'" >&2
     exit 1
   }
-  if [[ "$branch_name" != "main" ]]; then
-    echo "WARNING: This component is from a non-main branch (${branch_name})."
-    echo "Deploying will replace any existing deployment of this process in environment ${env_id}. If this is unexpected STOP and consult the user to discuss"
-  fi
   echo "Packaging '${COMPONENT_NAME}' (${component_id}) from branch ${branch_name}"
 else
-  echo "Packaging '${COMPONENT_NAME}' (${component_id}) from main"
+  echo "Packaging '${COMPONENT_NAME}' (${component_id}) from the account default branch"
 fi
 
-# Build PackagedComponent JSON — include branchName only if non-main
+# Build PackagedComponent JSON — branchName only when a branch resolved; omitting it
+# lets the account default branch apply
 pkg_json=$(jq -cn \
   --arg cid "$component_id" \
   --arg ver "$package_version" \
@@ -155,19 +212,25 @@ if [[ "$RESPONSE_CODE" != "200" && "$RESPONSE_CODE" != "201" ]]; then
        --arg err "${RESPONSE_BODY:0:500}" \
        '{component_name: $name, component_id: $id, error: $err}')"
   echo "ERROR: Packaging failed (HTTP ${RESPONSE_CODE}): ${RESPONSE_BODY}" >&2
-  exit 0
+  exit 1
 fi
 
 package_id=$(echo "$RESPONSE_BODY" | jq -r '.packageId // empty')
 if [[ -z "$package_id" ]]; then
   echo "ERROR: No packageId in PackagedComponent response" >&2
-  exit 0
+  exit 1
 fi
 
 echo "Packaged as ${package_id}"
 
+# --- Report what was packaged ---
+# The response's branchName only echoes the request; componentVersion is what shipped.
+packaged_version=$(echo "$RESPONSE_BODY" | jq -r '.componentVersion // empty')
+echo "Packaged component version ${packaged_version:-unknown}"
+
 # --- Step 2: Deploy the package ---
 echo "Deploying to environment ${env_id}"
+echo "NOTE: this replaces any existing deployment of this process in that environment."
 
 deploy_url="$(build_api_url "DeployedPackage")"
 deploy_json=$(jq -cn \
@@ -199,11 +262,11 @@ if [[ "$RESPONSE_CODE" != "200" && "$RESPONSE_CODE" != "201" ]]; then
        --arg env "$env_id" --arg err "${RESPONSE_BODY:0:500}" \
        '{component_name: $name, component_id: $id, environment_id: $env, error: $err}')"
   echo "ERROR: Deployment failed (HTTP ${RESPONSE_CODE}): ${RESPONSE_BODY}" >&2
-  exit 0
+  exit 1
 fi
 
 log_activity "deploy" "success" "$RESPONSE_CODE" \
   "$(jq -cn --arg name "$COMPONENT_NAME" --arg id "$component_id" \
-     --arg env "$env_id" --arg pkg "$package_id" --arg branch "${branch_name:-main}" \
+     --arg env "$env_id" --arg pkg "$package_id" --arg branch "${branch_name:-account-default}" \
      '{component_name: $name, component_id: $id, environment_id: $env, package_id: $pkg, branch: $branch}')"
 echo "SUCCESS: Deployed '${COMPONENT_NAME}' (package: ${package_id})"

@@ -12,16 +12,38 @@ Forked from [OfficialBoomi/boomi-integration](https://github.com/OfficialBoomi/b
 
 ## Staying Up To Date
 
-Pull upstream changes:
+The fork intentionally diverges from upstream, so do not use GitHub's discard
+workflow or merge upstream directly into `main`. Review each release on a branch:
+
 ```bash
-git fetch upstream
-git merge upstream/main
+git fetch origin upstream
+git switch -c sync/upstream-<version> origin/main
+git merge --no-ff --no-commit upstream/main
 ```
 
-Or use GitHub's sync:
-```bash
-gh repo sync nexus9888/boomi-integration -b main
-```
+Resolve shared-file conflicts in favor of upstream, then reapply only the
+fork-owned adaptations documented above. Validate the full tree, push the sync
+branch, and merge it through a pull request.
+
+## Roadmap / Future Ideas
+
+### Integration-specific patterns
+- Domain references for identity, ERP, CRM, and finance integrations
+- Connector-specific field mappings, retries, error handling, and gotchas
+
+### Testing and review
+- Automated mapping and edge-case tests
+- Execution-result analysis and regression snapshots
+- Process XML review for anti-patterns and naming standards
+
+### Reusable components and environments
+- Connection, profile, process-skeleton, and map templates
+- Team runtime IDs, folder structures, naming standards, and deployment targets
+- Private environment documentation and change-management workflows
+
+### Agent capabilities
+- Lightweight multi-system integration planning
+- CI/CD hooks for push, deploy, test, and review cycles
 
 ## Installation (Team Members)
 

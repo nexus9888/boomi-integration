@@ -8,6 +8,11 @@ A comprehensive guide to Boomi error patterns, silent failures, and issues that 
 - API authentication failures with no error messages
 - Components landing in wrong folders despite configuration
 
+## Contents
+- Quick Diagnostic Guide — symptom to issue number
+- Quick Reference Index — every issue with frequency and detection mode
+- Numbered issue sections — full detail, in index order
+
 ---
 
 ## Quick Diagnostic Guide
@@ -17,11 +22,11 @@ A comprehensive guide to Boomi error patterns, silent failures, and issues that 
 | Symptom | Check Issue # |
 |---------|----------------|
 | Variables appear literally in output | #1 (Quote Escaping) |
+| `can't parse argument number` error at execution | #1 (Quote Escaping) |
 | API authentication failures (no error) | #2 (Environment Variables) |
 | Subprocess updates not taking effect | #3 (Deployment Dependency) |
 | Map output ignored by connector | #4 (Connector Parameters) |
 | GET request errors with body | #5 (REST GET Clearing) |
-| Documents flowing but content lost | #6 (Profile Type Trap) |
 | Components in wrong folder | #7 (Folder Placement) |
 | XML validation errors during push | #8 (Schema Mistakes) |
 | Stack overflow in map editor | #9 (Map Function Attributes) |
@@ -32,7 +37,7 @@ A comprehensive guide to Boomi error patterns, silent failures, and issues that 
 | Blank canvas in GUI (JavaScript error) | #14 (Branch numBranches) |
 | NullPointerException at runtime / stack overflow in GUI | #15 (Stop continue Attribute) |
 | Empty action picklist in WSS operation | #16 (WSS actionType) |
-| Script engine null error in Data Process | #17 (Groovy Attributes) |
+| Script engine null error in Data Process | #17 (Script Engine Attributes) |
 | "No document" error with perExecution | #18 (Notify perExecution) |
 | WSS requests hitting wrong process | #19 (Listener Path Collision) |
 | MCP tool schema changes not applied | #20 (MCP Profile/Schema Sync) |
@@ -43,10 +48,33 @@ A comprehensive guide to Boomi error patterns, silent failures, and issues that 
 | MANDATORY_ELEMENT_MISSING on map output with identity fields | #25 (Identity Field Mandatory) |
 | Record silently missing from multi-record flat file output | #26 (Identity Value Trimming) |
 | "No data produced from map" on data positioned profile | #26 (Identity Value Trimming) |
-| HTTP 500 on concurrent listener requests / listener queuing | #27 (Listener Process Options) |
+| HTTP 503 on concurrent listener requests / listener queuing | #27 (Listener Process Options) |
 | White screen opening SF operation in GUI | #28 (SF Operation Missing Sorts Element) |
 | Push rejected — "locked by another user" | #29 (Component Locking) |
 | Groovy compile error in ProcessLog after clean push/deploy | #30 (Groovy Runtime Compilation) |
+| Connection override ignored / prod uses wrong host despite useDefault=false | #31 (Inert Override Missing xpath) |
+| Agent step: execution COMPLETE but the agent did nothing | #32 (Agent Step In-Band Errors) |
+| Try/Catch never fires on a failing Agent step | #32 (Agent Step In-Band Errors) |
+| Agent response empty after SSE extraction | #32 (Agent Step In-Band Errors) |
+| `access denied ("java.io.FilePermission" ...)` on a Disk V2 operation | #33 (Disk V2 Directory Outside work/) |
+| `Cannot check for the existence of the file because it cannot be read or written to` | #33 (Disk V2 Directory Outside work/) |
+| Disk V2 write denied on a path outside `work` | #33 (Disk V2 Directory Outside work/) |
+| Profile-keyed extraction empty after a Split Documents step | #34 (Split Preserves Wrapper) |
+| Every document lands on a Route step's Default path after a split | #34 (Split Preserves Wrapper) |
+| "No data produced from map" after a split | #34 (Split Preserves Wrapper) |
+| "ComponentId is invalid" on a component that exists | #35 (Account Default Branch) |
+| Push reports a new version but main never changes | #35 (Account Default Branch) |
+| GUI warning: "The 'X' action is no longer available" | #36 (Unresolvable customOperationType) |
+| Custom connector operation works at runtime but the GUI flags the action | #36 (Unresolvable customOperationType) |
+| Custom connector operation form lost its object type and all its fields | #36 (Unresolvable customOperationType) |
+| Custom connector receives no value for an operation field that looks set in the GUI | #37 (Operation Field Silently Ignored) |
+| Custom connector returns plausible data for the wrong input | #37 (Operation Field Silently Ignored) |
+| Custom connector runs a different build than its connection's classification | #38 (Operation subType Selects the Build) |
+| Custom connector authentication fails after editing a pulled connection | #39 (Pulled Connection Push Destroys the Password) |
+| `Component does not exist: <guid> (in groovy2 script)` at execution | #40 (Script GUID Creates No Dependency Edge) |
+| Process Property value unreachable from Groovy after a clean push and deploy | #40 (Script GUID Creates No Dependency Edge) |
+| "No data produced from map" with no other listed cause matching | #41 (No Satisfied Mapping) |
+| Map step emits zero documents and every downstream step is skipped | #41 (No Satisfied Mapping) |
 
 ---
 
@@ -59,7 +87,7 @@ A comprehensive guide to Boomi error patterns, silent failures, and issues that 
 | 3 | Parent-Subprocess Deployment Dependency | High | Silent - old behavior |
 | 4 | Connector Parameters Override Document Content | Medium | Silent - data ignored |
 | 5 | REST GET Document Clearing | Medium | Runtime error |
-| 6 | REST Connector Profile Type Trap | Medium | Silent - document loss |
+| 6 | REST Connector Profile Type Trap (historical, resolved in V11) | — | No longer occurs on V11+ runtimes |
 | 7 | Folder Placement Verification | High | Design-time visibility |
 | 8 | Common XML Schema Mistakes | High | Design-time validation |
 | 9 | Map Function GUI Requirements | Low | GUI rendering error |
@@ -81,6 +109,20 @@ A comprehensive guide to Boomi error patterns, silent failures, and issues that 
 | 25 | Identity Field mandatory="true" on Map Output | High | Runtime error - MANDATORY_ELEMENT_MISSING |
 | 26 | Identity Value Trimming in Data Positioned Profiles | High | Silent - record missing from output / ERROR if only record |
 | 27 | Listener Process with Default Process Options | High | Silent - queuing/rejection of concurrent requests |
+| 28 | SF Operation Missing Sorts Element | High | GUI white screen opening the operation editor |
+| 29 | Component Locking Blocks All API Updates | Medium | Push fails - HTTP 400 component locked |
+| 30 | Groovy Runtime Compilation | Medium | Runtime error - surfaced only in ProcessLog |
+| 31 | Connection-Override Field Missing xpath | High | Silent - override ignored, baked-in default used |
+| 32 | Agent Step Errors Return In-Band | High | Silent - COMPLETE on failure, Try/Catch never fires |
+| 33 | Disk V2 Directory Outside `work/` on Cloud Runtimes | High | Runtime error - FilePermission denial, clean push and deploy |
+| 34 | Split Documents Preserves Parent Wrapper | High | Silent in Set Properties/Route - ERROR in Map |
+| 35 | Account Default Branch Redirects Unqualified Operations | Low | Silent in the API - writes land on the default branch, main unchanged |
+| 36 | Unresolvable `customOperationType` on a Custom Connector Operation | Medium | GUI only - push, deploy and execution all succeed |
+| 37 | Operation Field Silently Ignored, GUI Shows Descriptor Default | High | No automatic detection - push, deploy, execution and GUI all report health |
+| 38 | Operation `subType` Silently Selects a Different Connector Build | Medium | Silent - one log prefix, one GUI subtitle |
+| 39 | Pushing a Pulled Connection Destroys the Password | High | Silent - fails only as remote auth rejection |
+| 40 | Script GUID Creates No Dependency Edge | High | Runtime error - push and deploy both clean |
+| 41 | A Map With No Satisfied Mapping Emits Zero Documents | High | Explicit ERROR at the map step - zero documents, downstream skipped |
 
 ---
 
@@ -139,6 +181,7 @@ Single quotes toggle between literal mode and variable substitution. Inside sing
 - **Single quote exits literal mode**: Back to variable substitution
 - **Literal single quote**: Use two single quotes (`''`) to output one quote
 - **Critical Pattern**: `'literal text '{variable}' more literal '{variable2}' end'`
+- **Bare `{}` fails at execution** (push and deploy succeed): `can't parse argument number: ; Caused by: For input string: ""`. Output a literal `{}` with `<msgTxt>'{}'</msgTxt>`.
 
 ### Copy-Paste Templates (Working Patterns)
 
@@ -369,7 +412,7 @@ REST GET connectors:
 ```xml
 <!-- Message step creates document -->
 <message combined="false">
-  <msgTxt>{"search": "criteria"}</msgTxt>
+  <msgTxt>'{"search": "criteria"}'</msgTxt>
 </message>
 
 <!-- REST GET inherits document content -->
@@ -383,7 +426,7 @@ REST GET connectors:
 ```xml
 <!-- Message step creates document for other purposes -->
 <message combined="false">
-  <msgTxt>{"search": "criteria"}</msgTxt>
+  <msgTxt>'{"search": "criteria"}'</msgTxt>
 </message>
 
 <!-- Empty Message step clears document content -->
@@ -410,40 +453,11 @@ For REST GET: Check upstream creates content → Add empty Message step before G
 
 ---
 
-## Issue #6: REST Connector Profile Type Trap
+## Issue #6: REST Connector Profile Type Trap (historical — resolved in V11)
 
-**Frequency:** Medium
-**Detection:** Silent - document flow continues but content is corrupted
+**Status:** Obsolete as of REST Client connector Version 11, which added selectable request/response profiles. Retained only as a note for pre-V11 runtimes.
 
-### The Problem
-
-REST connector operations in Boomi GUI do NOT support `requestProfileType` or `responseProfileType` attributes despite what some documentation suggests. Including these attributes causes silent document content loss.
-
-### Why It Happens
-
-Connector reports success, logs show documents flowing, but content is lost/corrupted. No design-time errors - fails silently at runtime.
-
-### Wrong Pattern - Silent Document Loss
-
-```xml
-<!-- CAUSES SILENT DOCUMENT FLOW FAILURES -->
-<GenericOperationConfig customOperationType="GET"
-                        operationType="EXECUTE"
-                        requestProfileType="none"
-                        responseProfileType="json">
-```
-
-### Correct Pattern - No Profile Type Attributes
-
-```xml
-<!-- CORRECT: No profile type attributes -->
-<GenericOperationConfig customOperationType="GET"
-                        operationType="EXECUTE">
-```
-
-### Pre-Push Checklist
-
-Remove `requestProfileType` and `responseProfileType` attributes. Use Map/Set Properties for response parsing instead.
+Before Version 11, REST operations did not support request/response profiles, and older guidance was to strip `requestProfileType`/`responseProfileType`. On Version 11+ these attributes are supported when paired with a profile, and **inert when no profile is linked**. Document the supported pattern instead — see `components/rest_connector_operation_component.md`.
 
 ---
 
@@ -463,6 +477,7 @@ Components land in account root folder instead of designated project folder desp
 - Folder ID placeholder patterns (`{FOLDER_GUID}`) not resolved before API call
 - Environment variable `BOOMI_TARGET_FOLDER` not resolving correctly
 - Tool folder resolution logic issues
+- Agent deliberately chose a different parent folder (e.g. to match existing account conventions) — build under `BOOMI_TARGET_FOLDER` when set, unless the user explicitly directed otherwise
 
 ### Wrong Patterns
 
@@ -471,7 +486,7 @@ Components land in account root folder instead of designated project folder desp
 <bns:Component componentId=""
                name="Component_Name"
                type="profile.json"
-               folderFullPath="AgentWorkspace/ProjectFolder">
+               folderFullPath="TargetFolder/ProjectFolder">
 <!-- Result: Component lands in root folder -->
 
 <!-- Pattern 2: Placeholder not resolved -->
@@ -591,44 +606,44 @@ cvc-enumeration-valid: Value 'setproperties' is not facet-valid
 ## Issue #9: Map Function GUI Requirements
 
 **Frequency:** Low
-**Detection:** GUI rendering error - stack overflow in map editor
+**Detection:** Map editor loads a blank canvas; browser console shows `Maximum call stack size exceeded`
 
 ### The Problem
 
-Map component functions missing required attributes cause stack overflow errors when opening in Boomi GUI map editor.
+A `<FunctionStep>` without `x`/`y` canvas coordinates cannot be rendered by the Boomi map editor — the canvas loads blank and the browser throws a stack-overflow error. API push and process execution are unaffected; the failure is GUI-only, and a single coordinate-less function is enough to trigger it.
 
 ### Wrong Pattern
 
 ```xml
-<functions>
-  <function default="false" functionType="groovy2">
-    <!-- Missing required attributes -->
-    <script>return input1 + input2</script>
-  </function>
-</functions>
+<Functions optimizeExecutionOrder="true">
+  <FunctionStep category="Scripting" key="1" name="Scripting"
+                position="1" type="Scripting">
+    <!-- Missing x/y coordinates -->
+  </FunctionStep>
+</Functions>
 ```
 
 ### Correct Pattern
 
 ```xml
-<functions>
-  <function default="false" functionType="groovy2"
-            cacheEnabled="true" sumEnabled="false"
-            x="100" y="100">
-    <script>return input1 + input2</script>
-  </function>
-</functions>
+<Functions optimizeExecutionOrder="true">
+  <FunctionStep cacheEnabled="true" category="Scripting" key="1" name="Scripting"
+                position="1" sumEnabled="false" type="Scripting" x="10.0" y="10.0">
+    ...
+  </FunctionStep>
+</Functions>
 ```
 
-### Required Attributes
+### Attributes
 
-- `cacheEnabled="true"` - Enable function result caching
-- `sumEnabled="false"` - Disable sum aggregation
-- `x="100"` and `y="100"` - Canvas coordinates for GUI positioning
+- `x` and `y` — required for GUI rendering. Start the first function at `y="10.0"` and increment ~140px per function.
+- `cacheEnabled`/`sumEnabled` — GUI-authored (`true`/`false`), not required for push, execution, or rendering. Emitting them matches what the GUI writes.
+
+See `references/components/map_component_functions.md` for full detail.
 
 ### Additional Consideration
 
-**Map function independence:** Each function widget should be standalone - no chaining function outputs to other function inputs. For complex multi-step transformations, use single Groovy function instead of chaining.
+**Map function independence:** Within a map's `<Functions>`, each function widget must be standalone - never wire one function's output to another function's input. For multi-step transformations, prefer a User-Defined Function component (`transform.function`, where step-to-step chaining is legal - see `references/components/user_defined_function_component.md`); use a single scripting function only when the logic genuinely needs code.
 
 ---
 
@@ -755,7 +770,7 @@ Temporary test Message shapes added for subprocess isolated testing are forgotte
 <!-- Test Message shape for isolated testing -->
 <shape x="100" y="200" shapetype="message">
   <message combined="false">
-    <msgTxt>{"test": "data", "mode": "development"}</msgTxt>
+    <msgTxt>'{"test": "data", "mode": "development"}'</msgTxt>
   </message>
 </shape>
 
@@ -851,12 +866,14 @@ response = requests.get(url, verify=self.verify_ssl)
 # SSL verification helper (add -k flag if SERVER_VERIFY_SSL=false)
 SSL_FLAG=$([ "${SERVER_VERIFY_SSL}" = "false" ] && echo "-k" || echo "")
 
-# Inline JSON with SSL support
-curl $SSL_FLAG -X POST \
-  -u "${SERVER_USERNAME}:${SERVER_TOKEN}" \
-  -H "Content-Type: application/json" \
-  -d '{"key":"value"}' \
-  "${SERVER_BASE_URL}/ws/simple/endpoint"
+# Inline JSON with SSL support. curl_cfg puts the credentials on stdin and escapes
+# them; -u would leak them to the command line.
+source <skill-path>/scripts/boomi-common.sh
+curl_cfg user "${SERVER_USERNAME}:${SERVER_TOKEN}" \
+  | curl $SSL_FLAG -X POST -K - \
+      -H "Content-Type: application/json" \
+      -d '{"key":"value"}' \
+      "${SERVER_BASE_URL}/ws/simple/endpoint"
 ```
 
 ### Configuration Separation
@@ -1105,7 +1122,7 @@ See references/steps/start_step.md for complete start step XML reference and WSS
 
 ### The Problem
 
-Data Process Custom Scripting steps missing required `language` and `useCache` attributes deploy successfully to the platform but fail at runtime with cryptic error: "Failed loading script engine null". The XML pushes without validation errors, but execution fails.
+Data Process Custom Scripting steps missing the required `language` attribute deploy successfully to the platform but fail at runtime with cryptic error: "Failed loading script engine null". The XML pushes without validation errors, but execution fails. (The `useCache` attribute is a performance flag, not required for execution — only `language` is load-bearing.)
 
 **Real-World Symptoms:**
 - Process deploys without errors
@@ -1116,7 +1133,7 @@ Data Process Custom Scripting steps missing required `language` and `useCache` a
 
 ### Why It Happens
 
-The platform API accepts `<dataprocessscript>` elements without the `language` attribute during component push. However, at runtime, the Groovy script engine initialization requires this attribute to determine which scripting engine to load. Without it, the engine lookup returns null, causing immediate NullPointerException.
+The platform API accepts `<dataprocessscript>` elements without the `language` attribute during component push. However, at runtime, script engine initialization requires this attribute to determine which scripting engine to load. Without it, the engine lookup returns null, causing immediate NullPointerException.
 
 **Root Cause:** Platform validation doesn't enforce required scripting attributes, but runtime engine requires them.
 
@@ -1170,23 +1187,23 @@ The platform API accepts `<dataprocessscript>` elements without the `language` a
 
 ### Critical Rule
 
-**Always include both required attributes on `<dataprocessscript>` elements:**
-- `language="groovy2"` - Specifies Groovy 2.4 runtime (REQUIRED)
-- `useCache="true"` - Enables script compilation caching (REQUIRED for performance)
+**Always include the `language` attribute on `<dataprocessscript>` elements:**
+- `language` - Specifies which script engine to load (REQUIRED). Valid tokens are `groovy2` (Groovy 2.4, the default), `groovy` (Groovy 1.5), and `javascript` (JavaScript). What matters for this error is that the attribute is *present*; any valid token avoids it.
+- `useCache="true"` - Script compilation caching flag (recommended, not required for execution — a step runs whether it is `"true"`, `"false"`, or omitted).
 
-Without these attributes, the script engine cannot initialize and runtime execution fails immediately.
+Without the `language` attribute, the script engine cannot initialize and runtime execution fails immediately.
 
 ### Pre-Push Checklist
 
 Before pushing any Data Process Custom Scripting steps:
 1. [ ] Locate all `<dataprocessscript>` elements in component XML
-2. [ ] Verify each has `language="groovy2"` attribute
-3. [ ] Verify each has `useCache="true"` attribute
+2. [ ] Verify each has a `language` attribute (`groovy2` default; `groovy`/`javascript` also valid)
+3. [ ] Optionally set `useCache="true"` (performance flag; not required for execution)
 4. [ ] Test execution after deployment to confirm script runs successfully
 
 ### Related Step Documentation
 
-See references/steps/data_process_groovy_step.md for complete Custom Scripting (Groovy) XML reference and examples.
+See references/steps/data_process_custom_scripting.md for complete Custom Scripting XML reference and examples.
 
 ---
 
@@ -1279,22 +1296,55 @@ Multiple deployed processes on the same WSS path cause unpredictable routing. Re
 
 ### Diagnostic
 
-Query active listeners using ListenerStatus API:
+`ListenerStatus` is the authoritative registry of active listeners on a runtime, but **its entries do not expose the listener's HTTP path**. Each entry contains only:
+
+- `listenerId` — the listener-bearing **process** componentId (not the operation componentId)
+- `status` — `listening` | `paused` | `errored`
+- `connectorType` — e.g. `wss`
+
+So the registry can answer "what listeners are active on this runtime?" but cannot directly answer "are any of them on the same path?" To compare paths, you must enrich each entry by fetching its process and operation components.
+
+**Step 1 — enumerate active listeners via ListenerStatus async query:**
 
 ```bash
+# curl_cfg puts the credentials on stdin and escapes them; -u would leak them to
+# the command line.
+source <skill-path>/scripts/boomi-common.sh
+auth() { curl_cfg user "BOOMI_TOKEN.${BOOMI_USERNAME}:${BOOMI_API_TOKEN}"; }
+
 # Start async query
-curl -X POST "https://api.boomi.com/api/rest/v1/${BOOMI_ACCOUNT_ID}/async/ListenerStatus/query" \
-  -u "BOOMI_TOKEN.${BOOMI_USERNAME}:${BOOMI_TOKEN}" \
+auth | curl -K - -X POST "${BOOMI_API_URL}/${BOOMI_ACCOUNT_ID}/async/ListenerStatus/query" \
   -H "Content-Type: application/json" -H "Accept: application/json" \
-  -d '{"QueryFilter":{"expression":{"operator":"EQUALS","property":"containerId","argument":["'${BOOMI_CONTAINER_ID}'"]}}}'
-# Returns {"asyncToken":{"token":"abc123..."}}
+  -d '{"QueryFilter":{"expression":{"operator":"EQUALS","property":"containerId","argument":["'${BOOMI_TEST_ATOM_ID}'"]}}}'
+# Returns {"asyncToken":{"token":"ListenerStatus-..."}}
 
 # Poll for results (replace TOKEN)
-curl "https://api.boomi.com/api/rest/v1/${BOOMI_ACCOUNT_ID}/async/ListenerStatus/response/{TOKEN}" \
-  -u "BOOMI_TOKEN.${BOOMI_USERNAME}:${BOOMI_TOKEN}" -H "Accept: application/json"
+auth | curl -K - "${BOOMI_API_URL}/${BOOMI_ACCOUNT_ID}/async/ListenerStatus/response/{TOKEN}" \
+  -H "Accept: application/json"
 ```
 
-Look for multiple `connectorType="wss"` entries sharing paths.
+A successful response has the shape:
+
+```json
+{
+  "@type": "AsyncOperationResult",
+  "result": [
+    { "@type": "ListenerStatus", "listenerId": "<process componentId>", "status": "listening", "connectorType": "wss" }
+  ],
+  "numberOfResults": 1,
+  "responseStatusCode": 200
+}
+```
+
+**Step 2 — resolve each `listenerId` to its registered path** (only needed for collision comparison):
+
+1. `GET Component/{listenerId}` — fetch the process XML
+2. Locate the start step's `connectoraction[@connectorType='wss']` element and read its `operationId`
+3. `GET Component/{operationId}` — fetch the operation XML
+4. Read `WebServicesServerListenAction/@objectName` and `@operationType`
+5. The path is `/ws/simple/{lowercase(operationType)}{SentenceCase(objectName)}`
+
+For a fast path-level collision check **without** the per-listener Component enrichment, hit the suspected path directly with `<skill-path>/scripts/boomi-wss-test.sh --method HEAD` and check the status code — a non-404 with valid perimeter credentials means a listener is registered there. Note that this approach is sensitive to the credentials being correct: see `references/platform_entities/shared_web_server.md` for the cloud-perimeter behavior that conflates "wrong creds" and "listener exists" if not handled carefully.
 
 ### Prevention
 
@@ -1331,9 +1381,9 @@ After any schema change:
 3. Redeploy ALL processes using this connection
 
 ```bash
-bash <skill-path>/scripts/boomi-component-push.sh mcp-profile.xml
-bash <skill-path>/scripts/boomi-component-push.sh mcp-operation.xml
-bash <skill-path>/scripts/boomi-deploy.sh mcp-process.xml
+bash <skill-path>/scripts/boomi-component-push.sh active-development/profile.json/mcp-profile.xml
+bash <skill-path>/scripts/boomi-component-push.sh active-development/connector-action/mcp-operation.xml
+bash <skill-path>/scripts/boomi-deploy.sh active-development/process/mcp-process.xml
 ```
 
 ---
@@ -1380,20 +1430,22 @@ Set `elementKey` to the loop's key, not a segment's key. With loop-level `elemen
 
 ---
 
-## Issue #23: Empty processOverrides Destroys Extensions
+## Issue #23: Empty processOverrides Hides Extensions Until Redeclared
 
 **Frequency:** High (any pull-modify-push workflow on processes with extensions)
 **Detection:** Silent - extension values disappear from environment after deployment
 
 ### The Problem
 
-Pushing a process with empty `<bns:processOverrides/>` or empty `<Overrides xmlns=""/>` actively **removes** that process's extension declarations from the environment. Extension values previously set via the Environment Extensions API are lost.
+Pushing a process with empty `<bns:processOverrides/>` or empty `<Overrides xmlns=""/>` removes that process's extension declarations from the environment. Values that had been set via the Environment Extensions API are hidden — they no longer appear in GET responses and are not used at runtime.
+
+The values are **not destroyed**: redeploying the process with its original `<bns:processOverrides>` block restored brings the declarations back, and the previously-set values reappear at their prior state. Recovery does not require a snapshot — only a clean redeploy.
 
 ### Why It Happens
 
-The platform stores exactly what is pushed. An empty processOverrides element is not "no change" -- it is "this process has no extensions." When deployed, the environment removes the extension declarations for that process.
+The platform stores exactly what is pushed. An empty processOverrides element is not "no change" -- it is "this process has no extensions." When deployed, the environment removes the extension declarations and the values become orphaned (preserved server-side but invisible to API and runtime until a matching declaration returns).
 
-### Wrong Pattern - Extensions Silently Destroyed
+### Wrong Pattern - Extensions Silently Hidden
 
 ```xml
 <!-- Pulled process had extensions, but processOverrides was emptied or left as self-closing -->
@@ -1401,7 +1453,7 @@ The platform stores exactly what is pushed. An empty processOverrides element is
   <bns:object>...</bns:object>
   <bns:processOverrides/>
 </bns:Component>
-<!-- Result: After push + deploy, all extension values for this process are gone -->
+<!-- Result: After push + deploy, this process's extension values are hidden from API and runtime -->
 ```
 
 ### Correct Pattern - Preserve Extensions
@@ -1413,7 +1465,7 @@ The platform stores exactly what is pushed. An empty processOverrides element is
     <Overrides xmlns="">
       <Connections>
         <ConnectionOverride id="c7d489dc-...">
-          <field id="url" label="URL" overrideable="true"/>
+          <field id="url" label="URL" overrideable="true" xpath="HttpSettings/@url"/>
         </ConnectionOverride>
       </Connections>
       <Properties>
@@ -1431,6 +1483,10 @@ Before pushing any process that may have extensions:
 1. Check if pulled XML contained populated `<bns:processOverrides>` content
 2. Never replace populated overrides with self-closing `<bns:processOverrides/>`
 3. When creating new processes, use self-closing form only if the process genuinely has no extensions
+
+### Recovery
+
+If a push has already hidden extensions, restore the original `<bns:processOverrides>` block in the process XML and redeploy — values come back with their prior settings. No API replay is required.
 
 ---
 
@@ -1534,6 +1590,8 @@ Boomi trims extracted field values before comparing them against `identityValue`
 
 **Single-record scenario:** No records match. Error: `"No data produced from map, please check source profile and make sure it matches source data."`
 
+This is one specific cause of the zero-document map failure — see Issue #41 for the general case.
+
 ### Why It Happens
 
 In a data positioned profile, fields have fixed widths. If an identity value is shorter than the field width (e.g., "BF" in a 3-char field), the extracted value is "BF " (padded with trailing space). Boomi trims this to "BF" before comparison. But `identityValue="BF "` is compared as-is — "BF" ≠ "BF ".
@@ -1574,7 +1632,7 @@ If a specific record type is missing from output but others parse correctly, che
 
 ### The Problem
 
-Listener processes (WSS, FSS, MCP Server, Event Streams) created with default process options have `allowSimultaneous="false"`, which causes concurrent requests to queue or fail. WSS processes return HTTP 500 to concurrent callers. Other listener types queue or reject subsequent triggers while one execution is in progress.
+Listener processes (WSS, FSS, MCP Server, Event Streams) created with default process options have `allowSimultaneous="false"`, which causes concurrent requests to queue or fail. WSS processes return HTTP 503 to concurrent callers. Other listener types queue or reject subsequent triggers while one execution is in progress.
 
 ### Why It Happens
 
@@ -1592,7 +1650,7 @@ New processes default to `allowSimultaneous="false"` and `updateRunDates="true"`
     </shape>
   </shapes>
 </process>
-<!-- Result: Second concurrent HTTP request gets HTTP 500; updateRunDates adds per-execution overhead -->
+<!-- Result: Second concurrent HTTP request gets HTTP 503; updateRunDates adds per-execution overhead -->
 ```
 
 ### Correct Pattern - Listener with Recommended Options
@@ -1704,21 +1762,21 @@ Groovy scripts inside `<dataprocessscript>` components are compiled by the Atom 
 
 ### Why It Happens
 
-The platform API validates XML schema at push and deployment metadata at deploy, but the `<script>` body is stored as opaque text. Groovy compilation happens inside the Atom on first execution, via the `language="groovy2"` engine configured on `<dataprocessscript>`. Push-time and deploy-time checks never exercise the Groovy parser, so syntactic issues cannot surface until runtime.
+The platform API validates XML schema at push and deployment metadata at deploy, but the `<script>` body is stored as opaque text. Compilation happens inside the runtime the first time a script executes, via the script engine selected by the `language` attribute on `<dataprocessscript>`. Push-time and deploy-time checks never exercise the script parser, so syntactic issues cannot surface until execution. (The same deploy-clean / execution-fail pattern applies to JavaScript scripts, which the Nashorn engine likewise compiles on first execution.)
 
 ### Wrong Pattern — Treating Deploy Success as Verification
 
 ```
-bash <skill-path>/scripts/boomi-component-push.sh processes/your_process.xml   # 200 OK
-bash <skill-path>/scripts/boomi-deploy.sh processes/your_process.xml            # SUCCESS: Deployed
+bash <skill-path>/scripts/boomi-component-push.sh process/your_process.xml   # 200 OK
+bash <skill-path>/scripts/boomi-deploy.sh process/your_process.xml            # SUCCESS: Deployed
 # — change considered verified, process never executed —
 ```
 
 ### Correct Pattern — Execute and Inspect the ProcessLog
 
 ```
-bash <skill-path>/scripts/boomi-component-push.sh processes/your_process.xml
-bash <skill-path>/scripts/boomi-deploy.sh processes/your_process.xml
+bash <skill-path>/scripts/boomi-component-push.sh process/your_process.xml
+bash <skill-path>/scripts/boomi-deploy.sh process/your_process.xml
 bash <skill-path>/scripts/boomi-test-execute.sh --process-id <guid>
 # inspect ProcessLog for Groovy compile/runtime errors before considering the change verified
 ```
@@ -1729,7 +1787,481 @@ After any change to a `<dataprocessscript>` body, execute the process, then veri
 
 ### Related
 
-- `references/steps/data_process_groovy_step.md` — Data Process Groovy step reference
+- `references/steps/data_process_custom_scripting.md` — Data Process Custom Scripting step reference
 - Issue #17 documents a sibling "deploy-clean, runtime-fails" pattern for the same step type (missing `language`/`useCache`)
+
+---
+
+## Issue #31: Connection-Override Field Missing `xpath` Is Silently Inert
+
+**Frequency:** High (any hand-authored or round-tripped `<bns:processOverrides>` connection override)
+**Detection:** Silent — no deploy error, no execution error; the connector simply uses the wrong value
+
+### The Problem
+
+A connection-override `<field>` declared `overrideable="true"` but missing its connector-specific `xpath` attribute is *declared but inert*. The `xpath` is the binding that injects the environment-extension value onto the target attribute in the connection XML; without it the value is never applied.
+
+The defect is dangerous because everything *looks* configured:
+- The field shows as overrideable in the Boomi GUI extensions tab.
+- The extensions GET (`boomi-extensions.sh get`) reports the field with `useDefault=false` and the set value.
+- There is no deploy warning and no execution error.
+
+At request time, the connector silently falls back to the connection component's baked-in default. It is **environment-masked** — it works on any environment where the connection's default already equals the desired value, and only fails where they differ (the classic "works in test, fails in prod"). It is also **redeploy-proof**: the broken declaration lives in the component, so redeploying reships it. Other override sections (e.g. `DefinedProcessPropertyOverrides`) bind independently and are unaffected, so credentials can resolve from extensions while a connection field does not — sending real credentials to the wrong host.
+
+### Wrong Pattern — Declared but Inert
+
+```xml
+<ConnectionOverride id="241f2935-...">
+  <field id="url" label="URL" overrideable="true"/>
+</ConnectionOverride>
+<!-- Override appears active in GUI and API, but the URL extension is ignored at runtime -->
+```
+
+### Correct Pattern — `xpath` Binds the Override
+
+```xml
+<ConnectionOverride id="241f2935-...">
+  <field id="url" label="URL" overrideable="true" xpath="HttpSettings/@url"/>
+</ConnectionOverride>
+<!-- The URL extension value is injected into HttpSettings/@url at runtime -->
+```
+
+Emit the complete canonical `<ConnectionOverride>` block the platform generates for the connector type — every field enumerated, each with its own `xpath` — rather than a hand-picked subset. See references/components/process_extensions.md § Connection Overrides for how to obtain it.
+
+### Detection
+
+Flag any self-closing overrideable `<field>` that has no `xpath`:
+
+```
+grep -oE '<field id="[^"]*" label="[^"]*" overrideable="true"/>' process.xml
+```
+
+Any match is a declared-but-inert override (a correctly bound field ends with `xpath="..."/>`, not `overrideable="true"/>`).
+
+### Related
+
+- `references/components/process_extensions.md` — Connection and Operation Overrides
+- Issue #23 documents the adjacent failure where an emptied `<bns:processOverrides>` hides extension declarations entirely
+
+---
+
+## Issue #32: Agent Step Errors Return In-Band, Not as Faults
+
+**Frequency:** High (any process using an Agent step)
+**Detection:** Silent — the shape reports success and the execution reports `COMPLETE`
+
+### The Problem
+
+Agent Garden answers an agent-side rejection with **HTTP 200** and a `{"success":false,"error":"..."}` body. The connector sees a successful call and emits that body as the output document. Nothing raises, so the shape reports success, the execution reports `COMPLETE`, and **a Try/Catch around the Agent step never fires** — there is no fault to catch.
+
+A process relying on Try/Catch for agent failures therefore has no error handling at all and reports success on total failure. The operation's `returnApplicationErrors` attribute does not change this; `true` and `false` behave identically.
+
+Agent-side rejections include: file uploads not enabled, file type or format rejected, too many or oversized files, and input not matching a structured agent's schema.
+
+### Wrong Pattern — Try/Catch as the Only Handler
+
+```
+Try/Catch
+  └── Agent Step → downstream
+      catch path: never taken — failures flow downstream as ordinary documents
+```
+
+### Correct Pattern — Decision on `success`, Try/Catch for Transport
+
+```
+Try/Catch
+  └── Agent Step → Decision (success == true?)
+                     ├── true  → downstream
+                     └── false → Exception step
+      catch path: transport faults only (read/connect timeout, unreachable host)
+```
+
+The Decision reads `success` from the returned envelope. Keep the Try/Catch — transport faults *do* fail the shape (`Shape executed with errors`, message in `meta.base.catcherrorsmessage`).
+
+### Related Traps
+
+- **Execution status is not a health signal.** Both failure classes finish `COMPLETE` — the rejection because nothing raised, a *caught* transport fault because the catch absorbed it.
+- **Guardrail blocks return `success: true`** with the refusal as the payload, so a `success` check passes them. Only content inspection catches those.
+- **A conversational agent's error output is JSON, not SSE**, so the `event: message` extractor returns `""` and discards the error. Branch on `success` before extracting.
+
+### Detection
+
+Rejections are refused before inference, so they return in a fraction of a real run's time. An Agent step that returns far faster than usual has usually been rejected.
+
+### Related
+
+- `references/steps/agent_step.md` § Error Handling — the two-class contract and timeout behavior
+- `references/steps/agent_step.md` § Output Format — the structured envelope the Decision reads `success` from
+
+---
+
+## Issue #33: Disk V2 Directory Outside `work/` Denied on Cloud Runtimes
+
+**Frequency:** High (any Disk V2 connection built without a stated runtime target)
+**Detection:** Runtime error — `java.io.FilePermission` denial on execution; push and deploy succeed
+
+### The Problem
+
+On cloud runtimes, Disk V2 writes are permitted under `work` and its subdirectories — any depth, auto-created with `createDir=true` — and denied outside it. `/tmp` is the common case.
+
+For an ordinary path, the constraint is **location, not path form**: a relative path outside `work` is denied exactly as an absolute one is. A `..` traversal segment is a separate rule — see § Traversal Is Blocked as a Form below.
+
+Every denied path still pushes and deploys cleanly — nothing surfaces at design time.
+
+The restriction covers the `connector.disk-sdk.directory` document property as well as the connection field, so a compliant connection does not guarantee a compliant write target.
+
+### Two Error Shapes
+
+Which message appears depends on whether the target directory already exists. Both contain `access denied ("java.io.FilePermission"`.
+
+**Target must be created** — directory creation denied, mode `write`, no exception class in the message:
+
+```
+[-1] access denied ("java.io.FilePermission" "{configured-directory}" "write")
+```
+
+**Target already exists** — existence check denied, mode `read`, wrapped in a connector message:
+
+```
+[-1] Cannot check for the existence of the file because it cannot be read or written to: java.security.AccessControlException: access denied ("java.io.FilePermission" "/tmp" "read")
+```
+
+The quoted path is echoed exactly as configured — not normalized, not resolved to an absolute path, no filename appended.
+
+### Traversal Is Blocked as a Form
+
+A `..` segment is denied even when it resolves back inside `work` — the permission check matches the literal, un-normalized path string. For the denial shapes, see `references/components/diskv2_connector_operation_component.md` § fileName with Subdirectory Paths.
+
+### Wrong Pattern — A Location Outside `work`
+
+```xml
+<field id="directory" type="string" value="/tmp"/>
+```
+
+### Correct Pattern
+
+```xml
+<field id="directory" type="string" value="work/output"/>
+```
+
+### The Rule
+
+Default every Disk V2 directory value to `work/{purpose}`.
+
+### Detection
+
+Config side — flag any directory value not under `work`, and inspect every override:
+
+```
+grep -n 'id="directory"' connection.xml | grep -v 'value="work[/"]'
+grep -n 'connector.disk-sdk.directory' process.xml
+```
+
+Anchor the `work` match on `/` or the closing quote — a bare `value="work` prefix also accepts non-compliant siblings such as `workflow/out`.
+
+Log side — key on the substring common to every shape. Do not pin the mode word (both `read` and `write` occur) and do not require the exception class (absent from the creation-denied shape):
+
+```
+grep -F 'access denied ("java.io.FilePermission"' process.log
+```
+
+### Related
+
+- `references/components/diskv2_connection_component.md` § Directory Configuration
+- `references/components/diskv2_connector_operation_component.md` § fileName with Subdirectory Paths — traversal denial, directory-override concatenation
+
+---
+
+## Issue #34: Split Documents Preserves the Parent Wrapper
+
+**Frequency:** High (any split followed by profile-keyed field access)
+**Detection:** Silent in Set Properties and Route (execution `COMPLETE`). Explicit ERROR in a Map.
+
+### The Problem
+
+A Split Documents step reduces the array or repeating element to one occurrence but keeps the parent wrapper: `{"orders":[A,B,C]}` yields `{"orders":[A]}`, `{"orders":[B]}`, `{"orders":[C]}`. XML behaves the same. Keyed against a flattened single-element profile:
+
+- **Set Properties** returns an empty string
+- **Route** matches nothing, so every document falls to the Default path
+- **Map** fails with `No data produced from map '<name>', please check source profile and make sure it matches source data`, emitting zero documents, so downstream steps are skipped
+
+The Map case is one specific cause of the zero-document map failure — see Issue #41 for the general case.
+
+### The Rule
+
+Downstream of a split, reuse the same profile and nested element keys as upstream of it. See `references/steps/data_process_step.md` § Output Document Shape.
+
+---
+
+## Issue #35: Account Default Branch Redirects Unqualified Operations
+
+**Frequency:** Low overall, but affects every operation in an account where it is set
+**Detection:** Silent by default — a write intended for main lands elsewhere and reports success
+
+### The Problem
+
+A request that names no branch resolves to the account's default branch. The setting is account-wide, so it reaches developers who never work on branches themselves, and it persists until someone changes it back in the UI. Requires branch & merge enabled; where those endpoints are denied every operation is on main (see `branch_merge_api_behavior.md` § Non-Branch-Enabled Account Behavior).
+
+### Detection
+
+- A push reports a new version, but main's version did not change.
+- A component readable on main reports `ComponentId is invalid` on push.
+- `bash <skill-path>/scripts/boomi-branch.sh default` reports the current setting (read-only).
+
+Create and push print the branch the platform used — `Create landed on branch:`, `Push landed on branch:` — and warn when it differs from the branch requested. A pull prints `Pull read from branch:` only when it named no branch; a `--branch` pull suppresses it, because an inherited component returns the parent's `branchId` and the report would be misleading. Compare what is printed against the branch you intended.
+
+### Resolution
+
+Pass `--branch main` for operations that must target main. The default is set in the UI only (Branch Management) — ask the user to change it there when the reported branch disagrees with intent.
+
+`ComponentId is invalid` does not distinguish "invisible to the addressed branch" from "no such ID". Pull and push diagnose it automatically and print a `DIAGNOSIS:` line; for any other component, `boomi-version-history.sh --component-id <id>` spans every branch, so the BRANCH column names the branches that can see it and zero rows mean the ID is wrong.
+
+### Related
+
+- `references/guides/branch_merge_api_behavior.md` § Account Default Branch — per-endpoint behavior and the `currentVersion` surface split
+---
+
+## Issue #36: Unresolvable `customOperationType` on a Custom Connector Operation
+
+**Frequency:** Medium (any hand-authored SDK connector operation component)
+**Detection:** Silent at every automated checkpoint — the GUI is the only surface that reports it
+
+### The Problem
+
+A custom connector Operation component whose `customOperationType` names a `customTypeId` the connector descriptor never declared cannot be resolved. The Boomi GUI reports it as:
+
+> The "EXECUTE" action is no longer available. Visit our documentation to learn about available options.
+
+The wording points at a platform deprecation. It is not one — EXECUTE is a current operation type, and all eight `OperationType` constants exist in the SDK. The message echoes the component's `customOperationType` attribute verbatim, which is why it can name a perfectly valid operation type: a component with `operationType="EXECUTE"` *and* `customOperationType="EXECUTE"` produces this banner about the second attribute while the first is entirely valid.
+
+**The banner is not the whole symptom — the operation form collapses.** Because the platform cannot locate the descriptor's operation definition, every descriptor-driven part of the form disappears: the Object dropdown goes blank and the operation's declared fields are not rendered at all, replaced by a generic Request Profile chooser. The stored field values remain in the XML and still reach the connector at runtime, so they are live but invisible and uneditable. A GUI save from that state has no field to write back, risking silent loss of values the form never showed.
+
+Everything else passes: the connector's Java compiles, descriptor validation succeeds, the connector version uploads, the component pushes, the deploy succeeds, and **the process executes to COMPLETE**. The runtime resolves the operation from `operationType` alone and ignores an unresolvable `customOperationType`, so the operation does the right thing at runtime. Working from the CLI and execution logs alone, the pipeline looks entirely green.
+
+```xml
+<!-- BROKEN — names a customTypeId the descriptor never declares -->
+<GenericOperationConfig customOperationType="EXECUTE" objectTypeId="CurrentWeather" operationType="EXECUTE">
+
+<!-- CORRECT — base operation type only -->
+<GenericOperationConfig objectTypeId="CurrentWeather" objectTypeName="Current Weather" operationType="EXECUTE">
+```
+
+### The Rule
+
+Omit `customOperationType` entirely unless the connector descriptor declares a `customTypeId` on that operation. Author the component's attributes from the descriptor, not by copying another connector's pulled operation — a working component from a *different* connector may legitimately carry a `customOperationType` backed by its own descriptor.
+
+### Related
+
+`customOperationType` is not the only attribute the platform accepts without checking. A wrong `objectTypeId` behaves the same way at runtime — silent, successful, correct output — and a wrong `<field id>` is worse still (Issue #37).
+
+### Detection
+
+There is no CLI check. Open the operation component in the Integration GUI, or verify the attributes against the connector descriptor before pushing. The connector descriptor validator inspects the descriptor only and has no visibility into components.
+
+The connector itself is the one component positioned to notice: the platform passes the unresolvable value through untouched, so a connector that validates `getCustomOperationType()` against its own known set and throws `ConnectorException` on a miss turns this GUI-only defect into a loud runtime failure.
+
+### Fixing It
+
+**The Connector Action dropdown is disabled on an existing operation component.** An operation is bound to the action chosen when it was created, so this cannot be repaired in the GUI — either correct `customOperationType` in the component XML and push, or create a replacement operation from the canvas and repoint the step at it.
+
+The same collapse hits every existing operation component for a connector whose descriptor **newly names** a previously-unnamed operation: those components carry no `customOperationType`, so they no longer match a declared operation. Activating such a connector version breaks consumers at design time with no warning, while their integrations keep running. Connector authors should name operations from the first published version.
+
+---
+
+## Issue #37: Operation Field Silently Ignored While the GUI Shows the Descriptor Default
+
+**Frequency:** High (any hand-authored custom connector operation)
+**Detection:** No automatic detection. Every available diagnostic reports health, including the GUI.
+
+### The Problem
+
+A `<field id="…">` in a custom connector Operation component that does not match a descriptor-declared id still reaches the connector — under the wrong name. The platform does not filter operation properties against the descriptor, so the misnamed key is delivered verbatim and the id the connector actually reads is simply absent. Nothing replaces it: the descriptor's `<defaultValue>` is **not** applied at runtime, so the connector falls back to whatever its own code does with a missing value.
+
+A one-character typo is enough. With `latitide` for `latitude`: the push succeeds, the deploy succeeds, execution reports COMPLETE, and a well-formed document comes back containing plausible data for entirely the wrong input.
+
+**The GUI actively reassures you.** Opening that component shows the field populated with the descriptor's `<defaultValue>` — a value the stored XML does not contain and the runtime never sends. `<defaultValue>` is a design-time pre-fill only, so design time and runtime disagree and the reassuring surface is the GUI. There is no warning banner, unlike Issue #36.
+
+Worse, because the GUI renders that default into a real form field, opening and saving the component writes the default into the XML — silently "fixing" it to a value the author never chose.
+
+### Detection
+
+Only two things work:
+
+- Diff the component's `<field id>` values against the descriptor's `<operation>` field ids, character by character.
+- Log `getOperationProperties().keySet()` from the connector. The platform delivers undeclared ids through untouched, so the received key set is the ground truth — an unexpected key or a missing expected one is the signal.
+
+An *extra* undeclared field alongside the correct one is harmless for a connector that reads fields by name, but a connector enumerating properties generically must filter them itself.
+
+### The Fix
+
+Correct the `<field id>` in the component XML to match the descriptor and push. There is no GUI repair path: the GUI never showed the misnamed field, and opening the component writes the descriptor default into the XML — replacing the intended value with one the author never chose and erasing the evidence of the typo.
+
+---
+
+## Issue #38: Operation `subType` Silently Selects a Different Connector Build
+
+**Frequency:** Medium (any account with more than one classification on a connector)
+**Detection:** Silent. One log prefix and one small GUI subtitle.
+
+### The Problem
+
+On a custom connector Operation component, `subType` is not merely metadata that ought to agree with the connection — **it selects which connector classification, and therefore which connector version, executes.** The Connection component contributes only its field values.
+
+A mismatch between the operation's `subType` and the connection's is accepted on push, on deploy, and at execution, with correct-looking output. In normal use — `dev`, `qa`, and `prod` classifications carrying different connector versions — the result is that the runtime loads a different connector build than the connection belongs to, with the connection's credentials, and reports nothing.
+
+This is easy to do by accident: each classification appears in the Integration connector picker as its own separately selectable connector, with a near-identical display name.
+
+### Detection
+
+- **Process log.** The connector step logs `<connection name>: <classificationType> Connector; <operation name>`. Compare that classificationType against the connection component's `subType` — this is the only CLI-visible signal.
+- **GUI.** A small grey label beside the component name names the connector the component belongs to. Comparing that label on the connection and on the operation is the only design-time check, and nothing draws attention to a discrepancy.
+
+### The Fix
+
+Set the operation component's `subType` to the same `classificationType` as the connection's and push. Check the log prefix on the next execution to confirm the intended classification ran.
+
+---
+
+## Issue #39: Pushing a Pulled Connection Destroys the Password
+
+**Frequency:** High for REST Client and custom SDK connector connections edited by pull-then-push
+**Detection:** Silent at design time — surfaces only as an authentication rejection from the target system.
+
+This is the canonical description of the hazard. `rest_connection_component.md` § Password Encryption and `custom_connector_connection_component.md` § Password Handling cover what is specific to each.
+
+### The Problem
+
+`type="password"` fields are **write-only**. A pull returns a 128-character lowercase-hex token — a reference to the stored secret, not the password — and every push stores the field's `value` verbatim as the new secret. Preserving that hex string byte for byte therefore makes the hex string itself the credential, and the connector presents 128 characters of hex where the password should be.
+
+`isSet="true"` in `<bns:encryptedValues>` does not protect the value; it is display metadata meaning "at least one password-typed field is set", not which. Every form of the field other than a plaintext value destroys the credential:
+
+| Pushed `value` | Stored result | Visible in a later pull? |
+|---|---|---|
+| the pulled 128-hex token | the token string becomes the password | **No** — entry stays `isSet="true"`, looks healthy |
+| a truncated or altered token | that string becomes the password | **No** — same |
+| `""` (empty) over a set secret | cleared | Yes — `<bns:encryptedValues/>` comes back empty |
+| field omitted | field deleted | Yes — field absent from the pulled XML |
+
+Push, deploy, and execution all succeed. Only the remote system rejects the credential.
+
+The push-time guard is narrower than the hazard: `boomi-component-push.sh` and `boomi-component-create.sh` reject a pushed 128-hex token for REST Client components only. A custom SDK connector connection (`type="connector-settings"`) carrying the same token pushes without complaint.
+
+### The Fix
+
+Have the user re-enter the password in the GUI. Author the field as `value=""` and have them fill it in afterward, re-inserting the field first if it was deleted. Do not ask the user for the plaintext to work around this.
+
+For **REST connections**, moving the secret to Environment Extensions makes the component XML safe to pull, edit, and push freely — see `rest_connection_component.md` § Keeping the Password Out of the Component. That path is not established for custom connector connection fields; there, the GUI is the only remedy.
+
+Re-pulling and re-pushing only stores a fresh token. A successful push says nothing about credential validity — only executing against the target system confirms it.
+
+---
+
+## Issue #40: Component GUID in a Script Body Creates No Dependency Edge
+
+**Frequency:** High (any script reading a Process Property component by GUID)
+**Detection:** Runtime error — push and deploy both complete cleanly, with no warning
+
+### The Problem
+
+A component GUID written as a string literal inside a script body is opaque text to the platform's reference analysis. No dependency edge is formed, so the referenced component is **not packaged** with the process at deploy time. If no other reference in the process pulls it into the package, execution fails:
+
+```
+Error executing data process
+Caused by: com.boomi.process.ProcessException: Component does not exist:
+{PROCESS_PROPERTY_COMPONENT_ID} (in groovy2 script)
+Caused by: java.lang.IllegalArgumentException: Component does not exist:
+{PROCESS_PROPERTY_COMPONENT_ID}
+```
+
+The canonical case is `ExecutionUtil.getProcessProperty(componentId, key)` in a Data Process step. Push returns success, `boomi-deploy.sh` reports success, and the failure is deferred to the first execution.
+
+### Why It Happens
+
+`ExecutionUtil.getProcessProperty` resolves the Process Property component out of the **deployed package** at execution time. Package contents are computed from the structured references in the process XML — shape attributes, parameter values, profile and map references. A GUID inside `<script>` text is never parsed as one of those, so the component never enters the package and the runtime lookup has nothing to load.
+
+This is a packaging failure, not a scripting failure. The script is syntactically fine and the GUID is correct; the component simply is not there.
+
+### Wrong Pattern — Script Is the Only Reference
+
+The GUID appears exactly once in the process XML, inside the script body:
+
+```groovy
+String targetUrl = ExecutionUtil.getProcessProperty(
+    "{PROCESS_PROPERTY_COMPONENT_ID}", "prop-target-url");
+```
+
+Querying the process component's references returns nothing, and the deployed package contains only the process:
+
+```
+Found 0 reference(s) (references: 0, referenced-by: 0)
+```
+
+### Correct Pattern — Read Into a DPP With a Set Properties Step
+
+A Set Properties step using `valueType="definedparameter"` is a structured reference. It creates the edge, packages the component, and puts the value in a DPP that scripts can read without naming any GUID:
+
+```xml
+<parametervalue key="1" valueType="definedparameter">
+  <definedprocessparameter componentId="{PROCESS_PROPERTY_COMPONENT_ID}"
+                           componentName="API Settings"
+                           propertyKey="prop-target-url"
+                           propertyLabel="API Base URL"/>
+</parametervalue>
+```
+
+```groovy
+String targetUrl = ExecutionUtil.getDynamicProcessProperty("DPP_TARGET_URL");
+```
+
+The reference query then reports the edge, the deployed package carries both components, and a direct `getProcessProperty` call in the same process resolves.
+
+### The Rule
+
+A script may only reach a component that something else in the process already references structurally. When a script must call `getProcessProperty` or `setProcessProperty` directly — writing values back, or choosing the property key at execution time — keep at least one Set Properties step reading that component so it stays packaged.
+
+### Related
+
+- `references/components/process_property_component.md` § Referencing in Groovy Scripts
+- `references/steps/set_properties_step.md` — `definedparameter` source value syntax
+- Issue #30 is the sibling deploy-clean / execution-fail pattern for script *syntax*; this issue is the same failure timing for script *references*
+- Issue #3 covers the other packaging-dependency trap, parent processes and subprocesses
+
+---
+
+## Issue #41: A Map With No Satisfied Mapping Emits Zero Documents
+
+**Frequency:** High (any map whose source data may not match the source profile in every mapped position)
+**Detection:** Explicit ERROR at the map step — zero documents emitted, every downstream step skipped.
+
+Issues #26 and #34 are two specific causes of this error. This is the general case.
+
+### The Problem
+
+A map produces output only for the mappings the source data actually satisfies. When **no** mapping in the map is satisfied, the map emits **zero documents** rather than an empty one, and the map step fails:
+
+```
+No data produced from map '<name>', please check source profile and make sure it matches source data.
+```
+
+The process logs a document error and every downstream step is skipped. Through a web service listener this surfaces as HTTP 500.
+
+The message's advice is accurate — the source data does not match the source profile in any mapped position. The trap is the assumption that a map with nothing to write produces an empty document. It produces no document.
+
+### The Rule
+
+**One satisfied mapping keeps the document alive.** A map containing a mapping the data always satisfies emits a document even when every other mapping comes up empty — the unsatisfied target fields are simply absent from the output. Where a map has a single data path and that path can be missing, the failure is total rather than partial.
+
+The distinction is presence, not value. A present source element with an empty value satisfies its mapping and keeps the document alive; an absent source element does not. So the same map can return a valid near-empty document for one input and fail outright for another that differs only by a missing key.
+
+Guard a map whose only mapping can come up empty by adding a second mapping from a source element that is always present.
+
+### Known specific causes
+
+| Cause | Where |
+|---|---|
+| The map's only mapping feeds a Set function — the side effect does not count as output | `components/map_component_functions.md` |
+| UDF interface drift after removing or renumbering a key | `components/user_defined_function_component.md` |
+| Identity-value trimming in a data positioned profile, when the unmatched record is the only record | Issue #26 |
+| Profile-keyed access after a Split Documents step, which preserves the parent wrapper | Issue #34 |
 
 ---
